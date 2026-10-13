@@ -1,0 +1,43 @@
+{
+	"folders": [
+		{
+			"name": "CNPM",
+			"path": "../../../../CNPM"
+		},
+		{
+			"name": "Flask-CleanArchitecture",
+			"path": "C:/Users/Acer/Flask-CleanArchitecture"
+		},
+		{
+			"name": "LTM",
+			"path": "../../../../LTM"
+		},
+		{
+			"name": "OnlineWhiteboard_NetworkProgramming",
+			"path": "../../../../LTM/OnlineWhiteboard_NetworkProgramming"
+		},
+		{
+			"name": "PTTKGT",
+			"path": "../../../../PTTKGT"
+		},
+		{
+			"name": "demo",
+			"path": "../../../../../demo"
+		},
+		{
+			"name": "demohtml",
+			"path": "C:/code/demohtml"
+		},
+		{
+			"name": "LTWEB",
+			"path": "../../../../LTWEB"
+		},
+		{
+			"name": "LTJAVA",
+			"path": "../../.."
+		}
+	],
+	"settings": {
+		"liveServer.settings.multiRootWorkspaceName": "LTWEB"
+	}
+}

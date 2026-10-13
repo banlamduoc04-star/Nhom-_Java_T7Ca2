@@ -1,0 +1,12 @@
+# IDE & System files
+.idea/
+.vscode/
+*.DS_Store
+*.log
+
+# Build files
+omnichannel-oism/backend/target/
+omnichannel-oism/frontend-admin/node_modules/
+omnichannel-oism/frontend-admin/.next/
+omnichannel-oism/frontend-pos/node_modules/
+omnichannel-oism/frontend-pos/.next/
