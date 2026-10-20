@@ -14,99 +14,100 @@ import org.springframework.transaction.annotation.Transactional;
 import java.util.List;
 import java.util.stream.Collectors;
 
-/**
- * Lớp cài đặt xử lý nghiệp vụ cho danh mục sản phẩm (Category)
- */
 @Service
 public class CategoryServiceImpl implements CategoryService {
 
     private final CategoryRepository categoryRepository;
     private final SecurityUtils securityUtils;
 
-    // Tiêm phụ thuộc qua Constructor Injection
     public CategoryServiceImpl(CategoryRepository categoryRepository, SecurityUtils securityUtils) {
         this.categoryRepository = categoryRepository;
         this.securityUtils = securityUtils;
     }
 
-    // Chuyển đổi từ Entity sang DTO Response
+    // Chuyen doi Entity sang DTO
     private CategoryResponse mapToResponse(Category category) {
         return CategoryResponse.builder()
                 .id(category.getId())
                 .name(category.getName())
                 .description(category.getDescription())
+                .parentId(category.getParent() != null ? category.getParent().getId() : null)
+                .parentName(category.getParent() != null ? category.getParent().getName() : null)
                 .build();
     }
 
-    // Tạo mới danh mục
+    // Tao danh muc moi
     @Override
     @Transactional
     public CategoryResponse createCategory(CategoryRequest request) {
         Tenant tenant = securityUtils.getCurrentTenant();
 
-        // Xây dựng đối tượng danh mục mới
+        Category parent = null;
+        if (request.getParentId() != null) {
+            parent = categoryRepository.findByIdAndTenantIdAndDeletedFalse(request.getParentId(), tenant.getId())
+                    .orElse(null);
+        }
+
         Category category = Category.builder()
                 .name(request.getName().trim())
                 .description(request.getDescription())
+                .parent(parent)
                 .tenant(tenant)
                 .deleted(false)
                 .build();
 
-        Category savedCategory = categoryRepository.save(category);
-        return mapToResponse(savedCategory);
+        return mapToResponse(categoryRepository.save(category));
     }
 
-    // Lấy thông tin danh mục theo ID
+    // Lay danh muc theo ID
     @Override
     public CategoryResponse getCategoryById(Long id) {
         Long tenantId = securityUtils.getCurrentTenantId();
-
-        // Tìm danh mục theo ID và tenantId, loại bỏ bản ghi đã xóa mềm
         Category category = categoryRepository.findByIdAndTenantIdAndDeletedFalse(id, tenantId)
-                .orElseThrow(() -> new ResourceNotFoundException("Không tìm thấy danh mục với ID: " + id));
-
+                .orElseThrow(() -> new ResourceNotFoundException("Khong tim thay danh muc voi ID: " + id));
         return mapToResponse(category);
     }
 
-    // Lấy danh sách tất cả danh mục chưa bị xóa
+    // Lay danh sach tat ca danh muc
     @Override
     public List<CategoryResponse> getAllCategories() {
         Long tenantId = securityUtils.getCurrentTenantId();
-
         return categoryRepository.findByTenantIdAndDeletedFalse(tenantId)
                 .stream()
                 .map(this::mapToResponse)
                 .collect(Collectors.toList());
     }
 
-    // Cập nhật thông tin danh mục
+    // Cap nhat danh muc
     @Override
     @Transactional
     public CategoryResponse updateCategory(Long id, CategoryRequest request) {
         Long tenantId = securityUtils.getCurrentTenantId();
-
-        // Kiểm tra danh mục có tồn tại không
         Category category = categoryRepository.findByIdAndTenantIdAndDeletedFalse(id, tenantId)
-                .orElseThrow(() -> new ResourceNotFoundException("Không tìm thấy danh mục với ID: " + id));
+                .orElseThrow(() -> new ResourceNotFoundException("Khong tim thay danh muc voi ID: " + id));
 
-        // Cập nhật thông tin mới
         category.setName(request.getName().trim());
         category.setDescription(request.getDescription());
 
-        Category updatedCategory = categoryRepository.save(category);
-        return mapToResponse(updatedCategory);
+        if (request.getParentId() != null) {
+            Category parent = categoryRepository.findByIdAndTenantIdAndDeletedFalse(request.getParentId(), tenantId)
+                    .orElse(null);
+            category.setParent(parent);
+        } else {
+            category.setParent(null);
+        }
+
+        return mapToResponse(categoryRepository.save(category));
     }
 
-    // Xóa mềm danh mục (cập nhật deleted = true, không xóa vật lý khỏi CSDL)
+    // Xoa mem danh muc
     @Override
     @Transactional
     public void deleteCategory(Long id) {
         Long tenantId = securityUtils.getCurrentTenantId();
-
         Category category = categoryRepository.findByIdAndTenantIdAndDeletedFalse(id, tenantId)
-                .orElseThrow(() -> new ResourceNotFoundException("Không tìm thấy danh mục với ID: " + id));
+                .orElseThrow(() -> new ResourceNotFoundException("Khong tim thay danh muc voi ID: " + id));
 
-        // Đánh dấu xóa mềm
         category.setDeleted(true);
         categoryRepository.save(category);
     }

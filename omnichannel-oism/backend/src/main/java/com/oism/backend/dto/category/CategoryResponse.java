@@ -6,9 +6,6 @@ import lombok.Getter;
 import lombok.NoArgsConstructor;
 import lombok.Setter;
 
-/**
- * DTO trả về thông tin chi tiết của danh mục sản phẩm.
- */
 @Getter
 @Setter
 @NoArgsConstructor
@@ -16,12 +13,9 @@ import lombok.Setter;
 @Builder
 public class CategoryResponse {
 
-    // Mã định danh danh mục
     private Long id;
-
-    // Tên danh mục
     private String name;
-
-    // Mô tả danh mục
     private String description;
+    private Long parentId;
+    private String parentName;
 }

@@ -2,13 +2,12 @@ package com.oism.backend.repository;
 
 import com.oism.backend.entity.User;
 import org.springframework.data.jpa.repository.JpaRepository;
+import org.springframework.stereotype.Repository;
+
 import java.util.Optional;
 
-/**
- * Repository thao tác với bảng users
- */
+@Repository
 public interface UserRepository extends JpaRepository<User, Long> {
 
-    // Tìm kiếm người dùng theo username
     Optional<User> findByUsername(String username);
 }

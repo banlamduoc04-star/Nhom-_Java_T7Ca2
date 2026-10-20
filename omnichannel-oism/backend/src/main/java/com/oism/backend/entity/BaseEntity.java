@@ -20,9 +20,6 @@ import org.springframework.data.jpa.domain.support.AuditingEntityListener;
 
 import java.time.LocalDateTime;
 
-/**
- * Lớp thực thể cơ sở chứa các trường thông tin dùng chung, auditing và soft delete.
- */
 @MappedSuperclass
 @EntityListeners(AuditingEntityListener.class)
 @SuperBuilder
@@ -32,32 +29,26 @@ import java.time.LocalDateTime;
 @Setter
 public abstract class BaseEntity {
 
-    // Khóa chính tự tăng
     @Id
     @GeneratedValue(strategy = GenerationType.IDENTITY)
     private Long id;
 
-    // Thời gian tạo bản ghi
     @CreatedDate
     @Column(name = "created_at", updatable = false)
     private LocalDateTime createdAt;
 
-    // Thời gian cập nhật gần nhất
     @LastModifiedDate
     @Column(name = "updated_at")
     private LocalDateTime updatedAt;
 
-    // Người tạo bản ghi
     @CreatedBy
     @Column(name = "created_by", updatable = false)
     private String createdBy;
 
-    // Người cập nhật gần nhất
     @LastModifiedBy
     @Column(name = "updated_by")
     private String updatedBy;
 
-    // Cờ đánh dấu xóa mềm
     @Builder.Default
     @Column(name = "deleted", nullable = false)
     private boolean deleted = false;
