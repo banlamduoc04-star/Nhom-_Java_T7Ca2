@@ -7,6 +7,7 @@ Hệ thống quản lý bán hàng và tồn kho đa kênh
 
 📖 Giới thiệu
 OISM là hệ thống hướng đến việc quản lý sản phẩm, hàng hóa, tồn kho và đơn hàng tập trung.
+
 🛠️ Công nghệ sử dụng:
 Java
 Spring Boot
@@ -21,7 +22,8 @@ Quản lý tồn kho
 Quản lý nhập hàng và chuyển kho
 Quản lý đơn hàng
 
-📁 Cấu trúc dự án
+##📁 Cấu trúc dự án
+```text
 OISM/
 ├── pom.xml
 └── src/
@@ -29,3 +31,4 @@ OISM/
         ├── java/
         └── resources/
             └── application.yml
+```
