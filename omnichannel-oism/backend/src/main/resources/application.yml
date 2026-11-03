@@ -7,7 +7,7 @@ spring:
   datasource:
     url: jdbc:postgresql://localhost:5432/oism_db
     username: postgres
-    password: postgres_password
+    password: ${DB_PASSWORD:postgres_password}
     driver-class-name: org.postgresql.Driver
   jpa:
     hibernate:
@@ -19,5 +19,5 @@ spring:
 
 # JWT Configuration (FR-AUTH-02)
 jwt:
-  secret: 404E635266556A586E3272357538782F413F4428472B4B6250645367566B5970
-  expiration: 3600000 # 60 phut
+  secret: ${JWT_SECRET:local-dev-only-change-this-secret-32bytes-min}
+  expiration: 3600000
