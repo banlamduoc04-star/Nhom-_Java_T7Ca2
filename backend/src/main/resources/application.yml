@@ -33,6 +33,8 @@ oism:
     access-ttl-minutes: 60
   cors:
     allowed-origins: ${OISM_CORS_ORIGINS:http://localhost:5173}
+  seed:
+    enabled: ${OISM_SEED_ENABLED:false}   # true: nap du lieu mau demo (2 tenant, 50 SKU...)
 
 springdoc:
   swagger-ui:
