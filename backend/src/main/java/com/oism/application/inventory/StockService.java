@@ -10,6 +10,7 @@ import com.oism.domain.repository.SkuRepository;
 import com.oism.domain.repository.StockBalanceRepository;
 import jakarta.persistence.criteria.Predicate;
 import org.springframework.data.domain.Page;
+import org.springframework.data.domain.PageRequest;
 import org.springframework.data.domain.Sort;
 import org.springframework.data.jpa.domain.Specification;
 import org.springframework.stereotype.Service;
@@ -86,6 +87,19 @@ public class StockService {
         return PageResult.of(result, t -> new TransactionView(t.getId(), t.getBranchId(), t.getSkuId(),
                 codes.get(t.getSkuId()), t.getDirection(), t.getReason(), t.getQuantity(), t.getBalanceAfter(),
                 t.getUnitCost(), t.getRefType(), t.getRefId(), t.getCreatedBy(), t.getCreatedAt()));
+    }
+
+    /** Keyset pagination (JC-30, FR-INV-01): truy van so cai hieu nang cao khong can offset. */
+    @Transactional(readOnly = true)
+    public List<TransactionView> transactionsKeyset(UUID tenantId, UUID branchId, Instant lastCreatedAt, UUID lastId, int limit) {
+        PageRequest pr = PageRequest.of(0, Math.min(Math.max(limit, 1), 100));
+        List<InventoryTransaction> list = branchId != null
+                ? inventoryTransactionRepository.findKeysetByBranch(tenantId, branchId, lastCreatedAt, lastId, pr)
+                : inventoryTransactionRepository.findKeyset(tenantId, lastCreatedAt, lastId, pr);
+        Map<UUID, String> codes = skuCodes(tenantId, list.stream().map(InventoryTransaction::getSkuId).toList());
+        return list.stream().map(t -> new TransactionView(t.getId(), t.getBranchId(), t.getSkuId(),
+                codes.get(t.getSkuId()), t.getDirection(), t.getReason(), t.getQuantity(), t.getBalanceAfter(),
+                t.getUnitCost(), t.getRefType(), t.getRefId(), t.getCreatedBy(), t.getCreatedAt())).toList();
     }
 
     private Map<UUID, String> skuCodes(UUID tenantId, Collection<UUID> skuIds) {
