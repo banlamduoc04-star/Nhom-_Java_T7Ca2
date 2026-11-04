@@ -88,4 +88,36 @@ public class OrderController {
                 user.tenantId(), user.userId(), r.branchId(), r.customerName(), r.customerPhone(),
                 r.shippingAddress(), lines));
     }
+
+    public record CancelOrderRequest(
+            @NotNull(message = "Lý do hủy đơn không được để trống")
+            @Size(min = 1, max = 500, message = "Lý do hủy từ 1 đến 500 ký tự")
+            String reason) {
+    }
+
+    @PostMapping("/{id}/reserve")
+    @Operation(summary = "Giữ hàng cho đơn (Draft -> Reserved); khóa FOR UPDATE theo thứ tự SKU")
+    public OrderView reserve(@AuthenticationPrincipal AuthenticatedUser user, @PathVariable UUID id) {
+        return orderService.reserve(user.tenantId(), user.userId(), id);
+    }
+
+    @PostMapping("/{id}/confirm")
+    @Operation(summary = "Duyệt đơn và trừ kho (Reserved -> Confirmed); chụp giá vốn cost_price và ghi sổ cái")
+    public OrderView confirm(@AuthenticationPrincipal AuthenticatedUser user, @PathVariable UUID id) {
+        return orderService.confirm(user.tenantId(), user.userId(), id);
+    }
+
+    @PostMapping("/{id}/complete")
+    @Operation(summary = "Hoàn tất đơn hàng (Confirmed -> Completed)")
+    public OrderView complete(@AuthenticationPrincipal AuthenticatedUser user, @PathVariable UUID id) {
+        return orderService.complete(user.tenantId(), user.userId(), id);
+    }
+
+    @PostMapping("/{id}/cancel")
+    @Operation(summary = "Hủy đơn hàng (Draft/Reserved/Confirmed -> Cancelled); bắt buộc nhập lý do, tự động nhả/hoàn hàng")
+    public OrderView cancel(@AuthenticationPrincipal AuthenticatedUser user,
+                            @PathVariable UUID id,
+                            @Valid @RequestBody CancelOrderRequest r) {
+        return orderService.cancel(user.tenantId(), user.userId(), id, r.reason());
+    }
 }

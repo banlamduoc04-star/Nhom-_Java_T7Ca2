@@ -55,4 +55,15 @@ public class StockBalance extends TenantScopedEntity {
     public void applyOnHand(int newOnHand) {
         this.onHand = newOnHand;
     }
+
+    /** Chi goi tu ReservationService de giu hoac nha hang giu (FR-RSE-01..03). */
+    public void applyReserved(int newReserved) {
+        if (newReserved < 0) {
+            throw new IllegalArgumentException("Hàng giữ không được âm");
+        }
+        if (newReserved > onHand) {
+            throw new IllegalArgumentException("Hàng giữ không được vượt tồn thực tế");
+        }
+        this.reserved = newReserved;
+    }
 }
