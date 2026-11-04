@@ -252,3 +252,84 @@ export interface SimulationResult {
   errors: string[]
 }
 
+
+export interface StockAlert {
+  id: string
+  branchId: string
+  branchName: string
+  skuId: string
+  skuCode: string
+  productName: string
+  status: 'OPEN' | 'RESOLVED'
+  threshold: number
+  availableAtAlert: number
+  createdAt: string
+  resolvedAt: string | null
+}
+
+export interface ValuationItem {
+  branchId: string
+  branchName: string
+  skuId: string
+  skuCode: string
+  productName: string
+  onHand: number
+  avgCost: number
+  totalValue: number
+}
+
+export interface ValuationSummary {
+  totalInventoryValue: number
+  totalOnHand: number
+  totalActiveSkus: number
+  items: ValuationItem[]
+}
+
+export interface TopSellingItem {
+  skuId: string
+  skuCode: string
+  productName: string
+  quantitySold: number
+  totalRevenue: number
+}
+
+export interface SlowMovingItem {
+  branchId: string
+  branchName: string
+  skuId: string
+  skuCode: string
+  productName: string
+  onHand: number
+  avgCost: number
+  totalValue: number
+  daysWithoutSale: number
+}
+
+export interface DailyReport {
+  id: string
+  reportDate: string
+  totalRevenue: number
+  totalCogs: number
+  grossProfit: number
+  totalOrders: number
+  completedOrders: number
+  cancelledOrders: number
+  createdAt: string
+}
+
+export interface UserView {
+  id: string
+  email: string
+  fullName: string
+  phone: string | null
+  role: Role
+  branchId: string | null
+  branchName: string | null
+  active: boolean
+}
+
+export interface TenantSettings {
+  tenantId: string
+  tenantName: string
+  reservationMinutes: number
+}

@@ -1,4 +1,3 @@
-<div align="center">
 
 # 📦 OISM
 
@@ -16,7 +15,7 @@ Dự án chia thành **5 sprint** với **7 thành viên (M1–M7)**. Kế hoạ
 ## 👥 Vai trò người dùng
 
 | Vai trò | Quyền |
-|---|---|
+| --- | --- |
 | **Owner** | Toàn quyền trong cửa hàng |
 | **Staff** | Kho, đơn hàng, xem báo cáo tồn |
 | **Cashier** | Chỉ POS và tra cứu sản phẩm |
@@ -24,7 +23,7 @@ Dự án chia thành **5 sprint** với **7 thành viên (M1–M7)**. Kế hoạ
 ## ✨ Chức năng chính
 
 | Module | Nội dung |
-|---|---|
+| --- | --- |
 | **AUTH** | Đăng ký cửa hàng (tenant), đăng nhập JWT, phân quyền theo vai trò, chi nhánh/kho, tài khoản nhân viên |
 | **PROD** | Danh mục nhiều cấp, thương hiệu, sản phẩm và biến thể (SKU), mã vạch EAN-13, giá lẻ/sỉ, tìm kiếm và lọc |
 | **INV** | Sổ cái tồn kho chỉ ghi thêm, phiếu nhập, chuyển kho 2 bước, kiểm kê, nhà cung cấp |
@@ -38,7 +37,7 @@ Dự án chia thành **5 sprint** với **7 thành viên (M1–M7)**. Kế hoạ
 ## 🛠️ Công nghệ sử dụng
 
 | Lớp | Công nghệ |
-|---|---|
+| --- | --- |
 | Backend | Java 17, Spring Boot 3.3, Spring Security, Spring Data JPA/Hibernate |
 | Cơ sở dữ liệu | PostgreSQL 16, Flyway migration |
 | Xác thực | JWT (access 60 phút + refresh 7 ngày xoay vòng), mật khẩu BCrypt |
@@ -59,9 +58,9 @@ docker compose up -d --build
 Lần đầu build mất vài phút. Sau đó:
 
 | Dịch vụ | Địa chỉ |
-|---|---|
-| Swagger UI | http://localhost:8080/swagger-ui.html |
-| API | http://localhost:8080/api/v1 |
+| --- | --- |
+| Swagger UI | <http://localhost:8080/swagger-ui.html> |
+| API | <http://localhost:8080/api/v1> |
 | PostgreSQL | `localhost:5432`, DB `oism_db`, user `postgres` |
 
 Các bảng do Flyway tự tạo khi backend khởi động.
@@ -77,14 +76,14 @@ docker compose down                     # dừng, giữ dữ liệu
 docker compose down -v                  # dừng và xóa sạch dữ liệu
 ```
 
-**Chạy cả giao diện** (tùy chọn): `docker compose --profile frontend up -d --build` rồi mở Admin ở http://localhost:3000 và POS ở http://localhost:3001.
+**Chạy cả giao diện** (tùy chọn): `docker compose --profile frontend up -d --build` rồi mở Admin ở <http://localhost:3000> và POS ở <http://localhost:3001>.
 
 **Nạp dữ liệu mẫu** (2 cửa hàng, 50 SKU, tài khoản đủ 3 vai trò): đặt `OISM_SEED_ENABLED=true` khi chạy compose. Tài khoản và mật khẩu mẫu xem [Hướng dẫn chạy dự án OISM](docx/Hướng%20dẫn%20chạy%20dự%20án%20OISM.md).
 
 **Biến môi trường** (đặt trong file `.env` cạnh `docker-compose.yml`; mặc định đã chạy được cho dev):
 
 | Biến | Ý nghĩa |
-|---|---|
+| --- | --- |
 | `POSTGRES_PASSWORD` | Mật khẩu PostgreSQL (mặc định `postgres`) |
 | `OISM_JWT_SECRET` | Khóa ký JWT, tối thiểu 32 byte. **Bắt buộc đặt riêng khi triển khai thật** |
 | `OISM_SEED_ENABLED` | `true` để nạp dữ liệu mẫu demo (mặc định `false`) |
@@ -109,7 +108,7 @@ Chi tiết từng bước và xử lý lỗi: [Hướng dẫn chạy dự án OI
 Clean Architecture 4 lớp trong `backend/src/main/java/com/oism`:
 
 | Lớp | Nội dung |
-|---|---|
+| --- | --- |
 | `domain` | Entity, repository, `ErrorCode`, `BusinessException` |
 | `application` | Use case/service (`AuthService`), command, result |
 | `infrastructure` | JWT, Security, tenant filter, OpenAPI |
@@ -135,11 +134,11 @@ Lỗi trả về thống nhất dạng `{"errorCode": "IV40901", "message": "...
 ## 🗓️ Lộ trình
 
 | Sprint | Mục tiêu |
-|---|---|
+| --- | --- |
 | 1 | Phân tích, thiết kế, nền tảng backend, đăng ký/đăng nhập JWT, Swagger ✅ |
 | 2 | Sản phẩm, sổ cái tồn kho, nhập kho, giá vốn |
 | 3 | Đơn hàng, chống bán vượt, chuyển kho, kiểm kê, simulator |
-| 4 | POS, realtime, tác vụ nền, báo cáo |
+| 4 | POS, realtime, tác vụ nền, báo cáo ✅ |
 | 5 | Kiểm thử, hoàn thiện, Docker Compose + seed data, CI/CD, tài liệu |
 
 ## 🤝 Quy tắc làm việc
