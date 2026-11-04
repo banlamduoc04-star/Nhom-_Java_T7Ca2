@@ -98,7 +98,8 @@ public class GlobalExceptionHandler extends ResponseEntityExceptionHandler {
             return ErrorCode.RP40001.name();
         }
         if (resource.startsWith("inventory") || resource.startsWith("stock")
-                || resource.startsWith("transfers") || resource.startsWith("stocktakes")) {
+                || resource.startsWith("transfers") || resource.startsWith("stocktakes")
+                || resource.startsWith("suppliers") || resource.startsWith("purchase-receipts")) {
             return ErrorCode.IV40001.name();
         }
         return ErrorCode.AU40001.name();
