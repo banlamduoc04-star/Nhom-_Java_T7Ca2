@@ -26,3 +26,9 @@ out/
 .env*.local
 .env
 
+
+# Tai lieu noi bo (khong day len GitHub)
+docs/
+
+# Dau ra cua Claude
+Claude outputs/
