@@ -3,6 +3,7 @@ import type {
   Branch, Brand, CatalogStatus, Category, LedgerRow, Me, OrderChannel, OrderStatus, OrderView, Page,
   ProductDetail, ProductSummary, ProfitReportView, Receipt, ReceiptStatus, SimulationResult, Sku,
   SkuSearchItem, StockRow, StocktakeStatus, StocktakeView, Supplier, TransferStatus, TransferView,
+  StockAlert, ValuationSummary, TopSellingItem, SlowMovingItem, DailyReport, UserView, TenantSettings,
 } from './types'
 
 const data = <T>(p: Promise<{ data: T }>): Promise<T> => p.then((r) => r.data)
@@ -168,3 +169,46 @@ export const simulatorApi = {
     data(api.post<OrderView>(`/webhooks/${channel}`, body)),
 }
 
+
+export const alertApi = {
+  list: (params?: { status?: 'OPEN' | 'RESOLVED'; branchId?: string }) =>
+    data(api.get<StockAlert[]>('/alerts/stock', { params })),
+  resolve: (id: string) => data(api.post<{ message: string }>(`/alerts/stock/${id}/resolve`)),
+  count: () => data(api.get<{ openAlerts: number }>('/alerts/stock/count')),
+}
+
+export const stockReportApi = {
+  valuation: (branchId?: string) =>
+    data(api.get<ValuationSummary>('/reports/stock/valuation', { params: { branchId } })),
+  topSelling: (days = 30, limit = 10) =>
+    data(api.get<TopSellingItem[]>('/reports/stock/top-selling', { params: { days, limit } })),
+  slowMoving: (days = 30) =>
+    data(api.get<SlowMovingItem[]>('/reports/stock/slow-moving', { params: { days } })),
+  dailyReports: () => data(api.get<DailyReport[]>('/reports/daily')),
+  triggerDaily: (date?: string) => data(api.post<DailyReport>('/reports/daily/run', null, { params: { date } })),
+}
+
+export const userAdminApi = {
+  list: () => data(api.get<UserView[]>('/users')),
+  create: (body: { email: string; fullName: string; phone?: string; password: string; role: 'STAFF' | 'CASHIER'; branchId?: string }) =>
+    data(api.post<UserView>('/users', body)),
+  update: (id: string, body: { fullName: string; phone?: string; role: 'STAFF' | 'CASHIER'; branchId?: string }) =>
+    data(api.put<UserView>(`/users/${id}`, body)),
+  setStatus: (id: string, active: boolean) => data(api.patch<UserView>(`/users/${id}/status`, { active })),
+  resetPassword: (id: string, password: string) => data(api.put(`/users/${id}/password`, { password })),
+}
+
+export const branchAdminApi = {
+  list: () => data(api.get<Branch[]>('/branches')),
+  create: (body: { name: string; type: 'STORE' | 'WAREHOUSE'; address?: string }) =>
+    data(api.post<Branch>('/branches', body)),
+  update: (id: string, body: { name: string; type: 'STORE' | 'WAREHOUSE'; address?: string }) =>
+    data(api.put<Branch>(`/branches/${id}`, body)),
+  setStatus: (id: string, active: boolean) => data(api.patch<Branch>(`/branches/${id}/status`, { active })),
+}
+
+export const settingsApi = {
+  get: () => data(api.get<TenantSettings>('/settings')),
+  update: (reservationMinutes: number) =>
+    data(api.put<TenantSettings>('/settings', { reservationMinutes })),
+}
