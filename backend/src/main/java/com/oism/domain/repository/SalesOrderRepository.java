@@ -15,6 +15,10 @@ public interface SalesOrderRepository extends JpaRepository<SalesOrder, UUID>, J
 
     boolean existsByTenantIdAndCode(UUID tenantId, String code);
 
+    Optional<SalesOrder> findByTenantIdAndChannelAndExternalOrderId(UUID tenantId, com.oism.domain.model.OrderChannel channel, String externalOrderId);
+
+    java.util.List<SalesOrder> findByTenantIdAndStatusAndReservedUntilBefore(UUID tenantId, OrderStatus status, java.time.Instant time);
+
     /** Dung khi an chi nhanh: con don chua ket thuc thi khong an duoc (FR-AUTH-04). */
     boolean existsByTenantIdAndBranchIdAndStatusIn(UUID tenantId, UUID branchId, Collection<OrderStatus> statuses);
 }

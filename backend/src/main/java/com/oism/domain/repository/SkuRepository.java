@@ -25,6 +25,8 @@ public interface SkuRepository extends JpaRepository<Sku, UUID>, JpaSpecificatio
 
     List<Sku> findByTenantIdAndIdIn(UUID tenantId, Collection<UUID> ids);
 
+    List<Sku> findByTenantIdAndStatus(UUID tenantId, com.oism.domain.model.CatalogStatus status);
+
     boolean existsByTenantIdAndCode(UUID tenantId, String code);
 
     boolean existsByTenantIdAndBarcode(UUID tenantId, String barcode);

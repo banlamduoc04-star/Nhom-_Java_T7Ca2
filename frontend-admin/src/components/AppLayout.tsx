@@ -1,7 +1,8 @@
 import { Button, Layout, Menu, Result, Space, Tag, Typography } from 'antd'
 import {
-  AppstoreOutlined, ApartmentOutlined, ContainerOutlined, DatabaseOutlined, LogoutOutlined, ShopOutlined,
-  TagsOutlined, TeamOutlined,
+  ApartmentOutlined, AppstoreOutlined, AuditOutlined, ContainerOutlined, DatabaseOutlined,
+  LineChartOutlined, LogoutOutlined, ShopOutlined, ShoppingCartOutlined, SwapOutlined,
+  TagsOutlined, TeamOutlined, ThunderboltOutlined,
 } from '@ant-design/icons'
 import { Outlet, useLocation, useNavigate } from 'react-router-dom'
 import { useAuth } from '../auth/AuthContext'
@@ -18,12 +19,17 @@ interface Entry {
 
 /** Menu theo vai tro (FR-AUTH-03): moi muc chi hien voi vai tro duoc phep. */
 const ENTRIES: Entry[] = [
+  { key: '/orders', label: 'Đơn hàng', icon: <ShoppingCartOutlined />, roles: ['OWNER', 'STAFF'] },
   { key: '/products', label: 'Sản phẩm', icon: <AppstoreOutlined />, roles: ['OWNER', 'STAFF'] },
   { key: '/categories', label: 'Danh mục', icon: <ApartmentOutlined />, roles: ['OWNER'] },
   { key: '/brands', label: 'Thương hiệu', icon: <TagsOutlined />, roles: ['OWNER'] },
   { key: '/suppliers', label: 'Nhà cung cấp', icon: <TeamOutlined />, roles: ['OWNER', 'STAFF'] },
   { key: '/receipts', label: 'Phiếu nhập kho', icon: <ContainerOutlined />, roles: ['OWNER', 'STAFF'] },
+  { key: '/transfers', label: 'Chuyển kho', icon: <SwapOutlined />, roles: ['OWNER', 'STAFF'] },
+  { key: '/stocktakes', label: 'Kiểm kê kho', icon: <AuditOutlined />, roles: ['OWNER', 'STAFF'] },
   { key: '/stock', label: 'Tồn kho & sổ cái', icon: <DatabaseOutlined />, roles: ['OWNER', 'STAFF'] },
+  { key: '/profit-report', label: 'Báo cáo lợi nhuận', icon: <LineChartOutlined />, roles: ['OWNER'] },
+  { key: '/simulator', label: 'Giả lập & Webhook', icon: <ThunderboltOutlined />, roles: ['OWNER'] },
 ]
 
 const ROLE_LABEL: Record<Role, string> = { OWNER: 'Chủ cửa hàng', STAFF: 'Nhân viên', CASHIER: 'Thu ngân' }

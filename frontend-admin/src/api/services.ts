@@ -1,7 +1,8 @@
 import { api, tokenStore } from './client'
 import type {
-  Branch, Brand, CatalogStatus, Category, LedgerRow, Me, Page, ProductDetail, ProductSummary, Receipt,
-  ReceiptStatus, Sku, SkuSearchItem, StockRow, Supplier,
+  Branch, Brand, CatalogStatus, Category, LedgerRow, Me, OrderChannel, OrderStatus, OrderView, Page,
+  ProductDetail, ProductSummary, ProfitReportView, Receipt, ReceiptStatus, SimulationResult, Sku,
+  SkuSearchItem, StockRow, StocktakeStatus, StocktakeView, Supplier, TransferStatus, TransferView,
 } from './types'
 
 const data = <T>(p: Promise<{ data: T }>): Promise<T> => p.then((r) => r.data)
@@ -99,3 +100,71 @@ export const stockApi = {
   ledger: (params: { branchId?: string; skuId?: string; from?: string; to?: string; page?: number; size?: number }) =>
     data(api.get<Page<LedgerRow>>('/inventory-transactions', { params })),
 }
+
+export interface CreateOrderBody {
+  branchId: string
+  customerName?: string
+  customerPhone?: string
+  shippingAddress?: string
+  lines: { skuId: string; quantity: number }[]
+}
+
+export const orderApi = {
+  list: (params: { status?: OrderStatus; channel?: OrderChannel; branchId?: string; from?: string; to?: string; page?: number; size?: number }) =>
+    data(api.get<Page<OrderView>>('/orders', { params })),
+  get: (id: string) => data(api.get<OrderView>(`/orders/${id}`)),
+  createDraft: (body: CreateOrderBody) => data(api.post<OrderView>('/orders', body)),
+  createAndReserve: (body: CreateOrderBody & { channel: OrderChannel; externalOrderId?: string }) =>
+    data(api.post<OrderView>('/orders/reserve', body)),
+  reserve: (id: string) => data(api.post<OrderView>(`/orders/${id}/reserve`)),
+  confirm: (id: string) => data(api.post<OrderView>(`/orders/${id}/confirm`)),
+  complete: (id: string) => data(api.post<OrderView>(`/orders/${id}/complete`)),
+  cancel: (id: string, reason: string) => data(api.post<OrderView>(`/orders/${id}/cancel`, { reason })),
+}
+
+export interface CreateTransferBody {
+  fromBranchId: string
+  toBranchId: string
+  note?: string
+  items: { skuId: string; quantity: number }[]
+}
+
+export const transferApi = {
+  list: (params: { status?: TransferStatus; page?: number; size?: number }) =>
+    data(api.get<Page<TransferView>>('/transfers', { params })),
+  get: (id: string) => data(api.get<TransferView>(`/transfers/${id}`)),
+  create: (body: CreateTransferBody) => data(api.post<TransferView>('/transfers', body)),
+  dispatch: (id: string) => data(api.post<TransferView>(`/transfers/${id}/dispatch`)),
+  receive: (id: string) => data(api.post<TransferView>(`/transfers/${id}/receive`)),
+  cancel: (id: string, reason: string) => data(api.post<TransferView>(`/transfers/${id}/cancel`, { reason })),
+}
+
+export interface CreateStocktakeBody {
+  branchId: string
+  note?: string
+}
+
+export const stocktakeApi = {
+  list: (params: { status?: StocktakeStatus; branchId?: string; page?: number; size?: number }) =>
+    data(api.get<Page<StocktakeView>>('/stocktakes', { params })),
+  get: (id: string) => data(api.get<StocktakeView>(`/stocktakes/${id}`)),
+  create: (body: CreateStocktakeBody) => data(api.post<StocktakeView>('/stocktakes', body)),
+  recordCounts: (id: string, counts: { skuId: string; countedQty: number }[]) =>
+    data(api.post<StocktakeView>(`/stocktakes/${id}/counts`, { counts })),
+  approve: (id: string) => data(api.post<StocktakeView>(`/stocktakes/${id}/approve`)),
+}
+
+export const reportApi = {
+  profit: (params: { from?: string; to?: string; branchId?: string; channel?: OrderChannel; skuId?: string }) =>
+    data(api.get<ProfitReportView>('/reports/profit', { params })),
+  exportCsv: (params: { from?: string; to?: string; branchId?: string; channel?: OrderChannel; skuId?: string }) =>
+    api.get('/reports/profit/export', { params, responseType: 'blob' }),
+}
+
+export const simulatorApi = {
+  simulate: (body: { branchId: string; channel: OrderChannel; orderCount: number; items: { skuId: string; quantity: number }[] }) =>
+    data(api.post<SimulationResult>('/simulator/orders', body)),
+  sendWebhook: (channel: string, body: { branchId: string; externalOrderId: string; customerName?: string; customerPhone?: string; shippingAddress?: string; items: { skuId: string; quantity: number }[] }) =>
+    data(api.post<OrderView>(`/webhooks/${channel}`, body)),
+}
+

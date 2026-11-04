@@ -6,7 +6,7 @@ import java.util.UUID;
 /** Tenant cua request hien tai (lay tu JWT), luu theo luong xu ly. Phai clear sau moi request. */
 public final class TenantContext {
 
-    private static final ThreadLocal<UUID> CURRENT = new ThreadLocal<>();
+    private static final InheritableThreadLocal<UUID> CURRENT = new InheritableThreadLocal<>();
 
     private TenantContext() {
     }
