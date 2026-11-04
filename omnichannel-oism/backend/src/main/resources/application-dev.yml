@@ -1,0 +1,8 @@
+# Chi dung khi chay local. KHONG dung khoa nay o moi truong that.
+oism:
+  jwt:
+    secret: ${OISM_JWT_SECRET:dev-only-secret-change-me-0123456789-abcdef}
+
+logging:
+  level:
+    com.oism: DEBUG
