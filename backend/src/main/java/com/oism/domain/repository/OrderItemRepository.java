@@ -9,4 +9,6 @@ import java.util.UUID;
 public interface OrderItemRepository extends JpaRepository<OrderItem, UUID> {
 
     List<OrderItem> findByTenantIdAndOrderId(UUID tenantId, UUID orderId);
+
+    List<OrderItem> findByTenantIdAndOrderIdIn(UUID tenantId, java.util.Collection<UUID> orderIds);
 }
