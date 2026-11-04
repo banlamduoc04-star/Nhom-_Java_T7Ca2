@@ -30,7 +30,7 @@ Nguyên tắc: kiểm thử ở tầng thấp nhất đủ chứng minh được
 ## 3. Môi trường và dữ liệu
 
 - Máy dev và CI: JDK 17, Docker (Testcontainers tự dựng PostgreSQL 16 mỗi lần chạy, không cần cài DB).
-- Môi trường thủ công: `docker compose up -d --build` với `OISM_SEED_ENABLED=true` (xem [Hướng dẫn chạy](Hướng%20dẫn%20chạy%20dự%20án%20OISM.md)).
+- Môi trường thủ công: `docker compose up -d --build` với `OISM_SEED_ENABLED=true` (xem [Hướng dẫn chạy](../H%C6%B0%E1%BB%9Bng%20d%E1%BA%ABn%20ch%E1%BA%A1y%20d%E1%BB%B1%20%C3%A1n%20OISM.md)).
 - Dữ liệu mẫu (seed): 2 tenant, 3 chi nhánh (tenant A), 50 SKU, 3 nhà cung cấp, tài khoản đủ 3 vai trò, 2 phiếu nhập đã xác nhận; tenant B có 1 sản phẩm. Test tích hợp tự tạo dữ liệu riêng theo từng test (email ngẫu nhiên), không dùng seed.
 - Dữ liệu tính tay cho giá vốn: 11 ví dụ trong `CostCalculatorTest`; Flash Sale: 50 luồng, 1 SKU còn 1 cái.
 

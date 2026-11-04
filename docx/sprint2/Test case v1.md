@@ -1,6 +1,6 @@
 # Test case v1 — AUTH, PROD, INV, ORD (Sprint 2)
 
-44 test case; mỗi yêu cầu chức năng có ít nhất một case đúng (Đ) và một case lỗi (L). Cột **Tự động** trỏ tới test đang chạy trong CI (`U` = unit, `IT` = tích hợp trên PostgreSQL thật). Kết quả ghi theo lần chạy `./mvnw clean verify` ngày 04/11/2026 (xem cuối tài liệu).
+44 test case; mỗi yêu cầu chức năng có ít nhất một case đúng (Đ) và một case lỗi (L). Cột **Tự động** trỏ tới test chạy cục bộ bằng `./mvnw clean verify`; CI chưa chạy trên GitHub (`U` = unit, `IT` = tích hợp trên PostgreSQL thật). Kết quả ghi theo lần chạy `./mvnw clean verify` ngày 04/11/2026 (xem cuối tài liệu).
 
 Quy ước dữ liệu: "Owner/Staff/Cashier" là tài khoản của cùng một cửa hàng; "tenant B" là cửa hàng khác.
 
@@ -56,7 +56,7 @@ Quy ước dữ liệu: "Owner/Staff/Cashier" là tài khoản của cùng một
 | TC-INV-05 | FR-INV-02 | Đ | Tạo phiếu Nháp, sửa thêm dòng, xem tồn/sổ cái, xác nhận | Nháp chưa ghi sổ cái, chưa có tồn; sửa được; xác nhận ghi 2 dòng | IT `InventoryIT.draftReceiptIsEditableAndWritesNothingUntilConfirmed` |
 | TC-INV-06 | FR-INV-02 | L | Phiếu nhập số lượng 0, đơn giá âm, không dòng, chi nhánh lạ, SKU lạ, phiếu không tồn tại | 400 `IV40001` (SKU lạ: 404 `PR40401`; phiếu lạ: 404 `IV40401`) | IT `InventoryIT.validatesReceiptInputAndSuppliers` |
 | TC-INV-07 | FR-INV-05 | Đ | Thêm nhà cung cấp, ngưng dùng (`active=false`), vẫn liệt kê được | 201; 200; danh sách có 1 | IT như trên |
-| TC-INV-08 | FR-INV-01, FR-RSE-02 | L | 50 luồng cùng xuất 1 cái từ SKU còn đúng 1 cái | Đúng 1 thành công, 49 `IV40901`; tồn 0, không âm; sổ cái 2 dòng | IT `InventoryIT.concurrentOutNeverOversells` |
+| TC-INV-08 | FR-INV-01, NFR-PERF-02 (mức sổ cái) | L | 50 luồng cùng xuất 1 cái từ SKU còn đúng 1 cái | Đúng 1 thành công, 49 `IV40901`; tồn 0, không âm; sổ cái 2 dòng | IT `InventoryIT.concurrentOutNeverOversells` |
 | TC-INV-09 | FR-COST-01 | Đ | 8 phiếu nhập cùng SKU xác nhận đồng thời, cùng giá 100.000 | Tồn 80; `avg_cost` 100.000 (khóa dòng SKU chống ghi đè) | IT `InventoryIT.concurrentReceiptsOnSameSkuKeepAverageCostConsistent` |
 
 ## ORD và cô lập tenant
@@ -76,7 +76,7 @@ Quy ước dữ liệu: "Owner/Staff/Cashier" là tài khoản của cùng một
 
 | Mã | Mô tả | Trạng thái |
 |---|---|---|
-| TC-UI-01 | Admin: đăng ký cửa hàng → đăng nhập → thấy menu đúng vai trò | Đã chạy tay trên trình duyệt (đăng nhập, danh sách sản phẩm, phiếu nhập, tồn kho đều hiển thị dữ liệu mẫu thật) |
+| TC-UI-01 | Admin: đăng ký cửa hàng → đăng nhập → thấy menu đúng vai trò | Một phần: đã chạy tay trên trình duyệt đăng nhập, danh sách sản phẩm, phiếu nhập, tồn kho (hiển thị dữ liệu mẫu thật); chưa kiểm tra menu theo từng vai trò (Owner/Staff/Cashier) và chưa thử đăng ký cửa hàng mới qua giao diện |
 | TC-UI-02 | Admin: tạo sản phẩm 3 biến thể, sinh mã vạch, in tem | Chưa chạy tay (chỉ build) |
 | TC-UI-03 | Admin: tạo phiếu nhập Nháp → sửa → xác nhận | Chưa chạy tay (API đã có test tự động) |
 | TC-UI-04 | POS: quét mã + Enter, quét lại tăng SL, F2/F9/Esc, chặn vượt tồn | Logic giỏ hàng có 6 test Vitest; thao tác bàn phím trên trình duyệt chưa chạy tay |
