@@ -4,6 +4,8 @@ import { BrowserRouter, Navigate, Route, Routes } from 'react-router-dom'
 import { AuthProvider } from './auth/AuthContext'
 import { RequireAuth, RequireRole } from './auth/guards'
 import AppLayout from './components/AppLayout'
+import DashboardPage from './pages/DashboardPage'
+import BranchesPage from './pages/BranchesPage'
 import BrandsPage from './pages/BrandsPage'
 import CategoriesPage from './pages/CategoriesPage'
 import LoginPage from './pages/LoginPage'
@@ -13,11 +15,14 @@ import ProductsPage from './pages/ProductsPage'
 import ProfitReportPage from './pages/ProfitReportPage'
 import ReceiptsPage from './pages/ReceiptsPage'
 import RegisterPage from './pages/RegisterPage'
+import SettingsPage from './pages/SettingsPage'
 import SimulatorPage from './pages/SimulatorPage'
 import StockPage from './pages/StockPage'
+import StockReportsPage from './pages/StockReportsPage'
 import StocktakesPage from './pages/StocktakesPage'
 import SuppliersPage from './pages/SuppliersPage'
 import TransfersPage from './pages/TransfersPage'
+import UsersPage from './pages/UsersPage'
 
 export default function App() {
   return (
@@ -30,8 +35,9 @@ export default function App() {
               <Route path="/register" element={<RegisterPage />} />
               <Route element={<RequireAuth />}>
                 <Route element={<AppLayout />}>
-                  <Route index element={<Navigate to="/orders" replace />} />
+                  <Route index element={<Navigate to="/dashboard" replace />} />
                   <Route element={<RequireRole roles={['OWNER', 'STAFF']} />}>
+                    <Route path="/dashboard" element={<DashboardPage />} />
                     <Route path="/orders" element={<OrdersPage />} />
                     <Route path="/products" element={<ProductsPage />} />
                     <Route path="/products/:id" element={<ProductDetailPage />} />
@@ -42,9 +48,13 @@ export default function App() {
                     <Route path="/stock" element={<StockPage />} />
                   </Route>
                   <Route element={<RequireRole roles={['OWNER']} />}>
+                    <Route path="/stock-reports" element={<StockReportsPage />} />
+                    <Route path="/profit-report" element={<ProfitReportPage />} />
+                    <Route path="/branches" element={<BranchesPage />} />
+                    <Route path="/users" element={<UsersPage />} />
+                    <Route path="/settings" element={<SettingsPage />} />
                     <Route path="/categories" element={<CategoriesPage />} />
                     <Route path="/brands" element={<BrandsPage />} />
-                    <Route path="/profit-report" element={<ProfitReportPage />} />
                     <Route path="/simulator" element={<SimulatorPage />} />
                   </Route>
                 </Route>
