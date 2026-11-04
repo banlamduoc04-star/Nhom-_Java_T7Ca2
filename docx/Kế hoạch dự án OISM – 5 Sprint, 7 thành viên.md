@@ -277,6 +277,7 @@ Mọi lỗi trả về cùng một dạng JSON theo mẫu của giáo viên; mã
 | `AU40302` | 403 | Tài khoản bị khóa |
 | `AU40401` | 404 | Không tìm thấy người dùng/chi nhánh |
 | `AU40901` | 409 | Email hoặc tên chi nhánh đã tồn tại |
+| `AU40902` | 409 | Không ẩn được chi nhánh còn tồn kho hoặc còn đơn chưa kết thúc |
 | `PR40001` | 400 | Dữ liệu sản phẩm/SKU/giá không hợp lệ |
 | `PR40401` | 404 | Không tìm thấy sản phẩm, SKU, danh mục, thương hiệu |
 | `PR40901` | 409 | Trùng mã SKU hoặc mã vạch |

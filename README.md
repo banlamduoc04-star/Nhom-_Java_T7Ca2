@@ -44,8 +44,8 @@ Dự án chia thành **5 sprint** với **7 thành viên (M1–M7)**. Kế hoạ
 | Xác thực | JWT (access 60 phút + refresh 7 ngày xoay vòng), mật khẩu BCrypt |
 | Cô lập tenant | Cột `tenant_id` + Hibernate `@Filter` theo từng request |
 | Tài liệu API | springdoc-openapi (Swagger UI) |
-| Frontend | Admin Dashboard và POS (Next.js/React, TypeScript) |
-| Kiểm thử | JUnit 5, Mockito (Testcontainers, Playwright ở các sprint sau) |
+| Frontend | Admin Dashboard và POS (React + Vite + TypeScript; Admin dùng Ant Design, POS là PWA) |
+| Kiểm thử | JUnit 5, Mockito, Testcontainers, ArchUnit, Vitest (Playwright, JMeter ở Sprint 5) |
 | Triển khai | Docker, docker-compose, GitHub Actions |
 
 ## 🚀 Chạy bằng Docker (khuyến nghị)
@@ -53,7 +53,6 @@ Dự án chia thành **5 sprint** với **7 thành viên (M1–M7)**. Kế hoạ
 Chỉ cần cài **Docker Desktop**, không cần cài Java hay Maven.
 
 ```bash
-cd omnichannel-oism
 docker compose up -d --build
 ```
 
@@ -69,7 +68,7 @@ Các bảng do Flyway tự tạo khi backend khởi động.
 
 **Thử nhanh:** trong Swagger gọi `POST /auth/register` → `POST /auth/login` → bấm **Authorize** và dán `accessToken` → `GET /me`.
 
-Lệnh hay dùng (chạy trong thư mục `omnichannel-oism`):
+Lệnh hay dùng (chạy ở thư mục gốc repo):
 
 ```bash
 docker compose logs -f backend          # xem log backend
@@ -78,7 +77,9 @@ docker compose down                     # dừng, giữ dữ liệu
 docker compose down -v                  # dừng và xóa sạch dữ liệu
 ```
 
-**Chạy cả giao diện** (tùy chọn): `docker compose --profile frontend up -d --build` rồi mở Admin ở http://localhost:3000 và POS ở http://localhost:3001. Lưu ý: `frontend-admin` hiện chưa build được do trùng route `/products` giữa `app/products` và `app/(dashboard)/products`, cần M6 thống nhất lại.
+**Chạy cả giao diện** (tùy chọn): `docker compose --profile frontend up -d --build` rồi mở Admin ở http://localhost:3000 và POS ở http://localhost:3001.
+
+**Nạp dữ liệu mẫu** (2 cửa hàng, 50 SKU, tài khoản đủ 3 vai trò): đặt `OISM_SEED_ENABLED=true` khi chạy compose. Tài khoản và mật khẩu mẫu xem [Hướng dẫn chạy dự án OISM](docx/Hướng%20dẫn%20chạy%20dự%20án%20OISM.md).
 
 **Biến môi trường** (đặt trong file `.env` cạnh `docker-compose.yml`; mặc định đã chạy được cho dev):
 
@@ -86,22 +87,26 @@ docker compose down -v                  # dừng và xóa sạch dữ liệu
 |---|---|
 | `POSTGRES_PASSWORD` | Mật khẩu PostgreSQL (mặc định `postgres`) |
 | `OISM_JWT_SECRET` | Khóa ký JWT, tối thiểu 32 byte. **Bắt buộc đặt riêng khi triển khai thật** |
+| `OISM_SEED_ENABLED` | `true` để nạp dữ liệu mẫu demo (mặc định `false`) |
 
 ## 💻 Phát triển backend bằng IDE
 
 ```bash
-cd omnichannel-oism
 docker compose up -d postgres          # chỉ chạy CSDL
 cd backend
-./mvnw clean verify                    # build và chạy test (Windows: .\mvnw.cmd clean verify)
+./mvnw clean verify                    # build + test (test tích hợp cần Docker; Windows: .\mvnw.cmd clean verify)
 ./mvnw spring-boot:run                 # chạy backend, profile dev
+cd ../frontend-admin && npm install && npm run dev   # Admin, http://localhost:5173
+cd ../frontend-pos && npm install && npm run dev     # POS
 ```
+
+Chi tiết từng bước và xử lý lỗi: [Hướng dẫn chạy dự án OISM](docx/Hướng%20dẫn%20chạy%20dự%20án%20OISM.md). Quy ước code cho cả nhóm: [Chuẩn cấu hình chung](docx/Chuẩn%20cấu%20hình%20chung.md).
 
 > Nên đặt repo ở đường dẫn **không dấu, không khoảng trắng** để `spring-boot:run` không lỗi `ClassNotFoundException`. Bản Docker không bị ảnh hưởng.
 
 ## 🏗️ Kiến trúc backend
 
-Clean Architecture 4 lớp trong `omnichannel-oism/backend/src/main/java/com/oism`:
+Clean Architecture 4 lớp trong `backend/src/main/java/com/oism`:
 
 | Lớp | Nội dung |
 |---|---|
@@ -117,14 +122,14 @@ Lỗi trả về thống nhất dạng `{"errorCode": "IV40901", "message": "...
 ```text
 .
 ├── README.md
-├── docx/                      # Kế hoạch dự án OISM (docx + md)
+├── docker-compose.yml         # PostgreSQL + backend (+ 2 frontend, profile "frontend")
+├── backend/                   # Spring Boot 3 (Dockerfile, pom.xml, src/)
+│   └── legacy-reference/      # Code cũ tham khảo, không nằm trong build
+├── frontend-admin/            # Admin Dashboard (React + Vite + TS + Ant Design)
+├── frontend-pos/              # POS (React + Vite + TS, PWA)
+├── docx/                      # Kế hoạch, hướng dẫn chạy, chuẩn chung, tài liệu kiểm thử
 ├── diagram/                   # Sơ đồ thiết kế (draw.io, docx)
-└── omnichannel-oism/
-    ├── docker-compose.yml     # PostgreSQL + backend (+ frontend, profile "frontend")
-    ├── backend/               # Spring Boot 3 (Dockerfile, pom.xml, src/)
-    │   └── legacy-reference/  # Code cũ tham khảo, không nằm trong build
-    ├── frontend-admin/        # Admin Dashboard
-    └── frontend-pos/          # POS
+└── .github/                   # Mẫu pull request, workflow CI
 ```
 
 ## 🗓️ Lộ trình
