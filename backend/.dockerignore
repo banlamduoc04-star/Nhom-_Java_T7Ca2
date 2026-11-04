@@ -1,0 +1,6 @@
+target/
+legacy-reference/
+.mvn/
+.idea/
+.vscode/
+*.log
