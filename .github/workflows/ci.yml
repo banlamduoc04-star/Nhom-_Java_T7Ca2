@@ -1,0 +1,64 @@
+name: CI
+
+# Moi pull request vao develop/main phai xanh (bien dich + test) moi duoc merge (Ke hoach muc 4, quyet dinh 6).
+on:
+  pull_request:
+    branches: [develop, main]
+  push:
+    branches: [develop, main]
+
+jobs:
+  backend:
+    name: Backend (build + test + coverage)
+    runs-on: ubuntu-latest
+    defaults:
+      run:
+        working-directory: backend
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-java@v4
+        with:
+          distribution: temurin
+          java-version: '17'
+          cache: maven
+      # verify = unit test + ArchUnit + test tich hop Testcontainers (runner da co Docker) + bao cao JaCoCo
+      - name: mvnw verify
+        run: ./mvnw -B -Pcoverage verify
+      - name: Tom tat coverage
+        if: always()
+        run: |
+          if [ -f target/site/jacoco/jacoco.csv ]; then
+            awk -F, 'NR>1 {m+=$4; c+=$5} END {printf "Line coverage: %.1f%% (%d/%d dong)\n", 100*c/(m+c), c, m+c}' target/site/jacoco/jacoco.csv | tee -a "$GITHUB_STEP_SUMMARY"
+          fi
+      - uses: actions/upload-artifact@v4
+        if: always()
+        with:
+          name: backend-reports
+          path: |
+            backend/target/site/jacoco
+            backend/target/surefire-reports
+            backend/target/failsafe-reports
+
+  frontend:
+    name: Frontend (${{ matrix.app }})
+    runs-on: ubuntu-latest
+    strategy:
+      fail-fast: false
+      matrix:
+        app: [frontend-admin, frontend-pos]
+    defaults:
+      run:
+        working-directory: ${{ matrix.app }}
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+          cache: npm
+          cache-dependency-path: ${{ matrix.app }}/package-lock.json
+      - run: npm ci
+      - run: npm run lint
+      - run: npm run build
+      - name: Unit test (chi POS co test)
+        if: matrix.app == 'frontend-pos'
+        run: npm test
