@@ -2,7 +2,7 @@
 
 Người phụ trách: M1. Phiên bản v2, lập ngày 04/11/2026 trên nhánh `feature/sprint2`; cập nhật cuối mỗi sprint (RTM v3 ở Sprint 3). Đi kèm: [Kế hoạch kiểm thử v1](K%E1%BA%BF%20ho%E1%BA%A1ch%20ki%E1%BB%83m%20th%E1%BB%AD%20v1.md), [Test case v1](Test%20case%20v1.md), [Báo cáo test thủ công API Sprint 1](B%C3%A1o%20c%C3%A1o%20test%20th%E1%BB%A7%20c%C3%B4ng%20API%20Sprint%201.md).
 
-Nguồn yêu cầu: mục 2–3 của *Kế hoạch dự án OISM – 5 Sprint, 7 thành viên* (44 mã: 32 FR, 12 NFR). Mọi đường dẫn "Mã nguồn" tính từ `backend/src/main/java/com/oism/` (viết tắt `…/`), migration ở `backend/src/main/resources/db/migration/`, test ở `backend/src/test/java/com/oism/`.
+Nguồn yêu cầu: mục 2–3 của *Kế hoạch dự án OISM – 5 Sprint, 7 thành viên* (44 mã: 33 FR, 11 NFR). Mọi đường dẫn "Mã nguồn" tính từ `backend/src/main/java/com/oism/` (viết tắt `…/`), migration ở `backend/src/main/resources/db/migration/`, test ở `backend/src/test/java/com/oism/`.
 
 ## 1. Quy ước
 
@@ -20,10 +20,11 @@ Nguồn yêu cầu: mục 2–3 của *Kế hoạch dự án OISM – 5 Sprint, 
 | FR-AUTH-02 | Đăng nhập (email/SĐT), refresh xoay vòng, đăng xuất, khóa tài khoản | Kế hoạch 2.1; `V1` (refresh_token) | `…/application/auth/AuthService.java`, `…/application/auth/AccessTokenIssuer.java`, `…/infrastructure/security/JwtService.java`, `…/infrastructure/security/JwtAuthenticationFilter.java`, `…/domain/model/RefreshToken.java` | TC-AUTH-04..10: `AuthServiceTest`, `JwtServiceTest`, `AuthFlowIT`, `RbacIT`; thủ công: [báo cáo test thủ công](B%C3%A1o%20c%C3%A1o%20test%20th%E1%BB%A7%20c%C3%B4ng%20API%20Sprint%201.md) (26 ca, 25 Đạt) | M2 | Xong |
 | FR-AUTH-03 | RBAC Owner/Staff/Cashier, sai quyền → 403 `AU40301` | Kế hoạch 2.1 | `…/infrastructure/security/SecurityConfig.java` (`@EnableMethodSecurity`), `@PreAuthorize` trong các controller `…/web/**`, `…/web/error/RestAccessDeniedHandler.java` | TC-AUTH-11, 12: `RbacIT`; thủ công: ca 18..22 của báo cáo test thủ công | M2 | Một phần |
 | FR-AUTH-04 | Quản lý chi nhánh/kho: tạo, sửa, ẩn/hiện | Kế hoạch 2.1; `V1` (branch) | `…/application/branch/BranchService.java`, `…/web/branch/BranchController.java` | TC-AUTH-13, 14: `RbacIT` | M3 | Xong |
-| FR-AUTH-05 | Quản lý tài khoản nhân viên: tạo, khóa/mở, đặt lại mật khẩu | Kế hoạch 2.1; `V1` (app_user) | `…/application/user/UserService.java`, `…/web/user/UserController.java` | TC-AUTH-15, 16: `RbacIT`; thủ công: ca 22..25 của báo cáo test thủ công | M3 | Xong |
+| FR-AUTH-05 | Quản lý tài khoản nhân viên: tạo, khóa/mở, đặt lại mật khẩu | Kế hoạch 2.1; `V1` (app_user) | `…/application/user/UserService.java`, `…/web/user/UserController.java` | TC-AUTH-15, 16: `RbacIT`; thủ công: ca 22..25 của báo cáo test thủ công | M3 | Một phần |
 
 Ghi chú AUTH:
 - FR-AUTH-03 *Một phần*: API đã có test đủ; phần "Admin ẩn menu không được phép" chưa kiểm tra (TC-UI-01 mới xác nhận đăng nhập và các màn hiển thị dữ liệu mẫu, chưa duyệt menu theo từng vai trò; ẩn menu theo vai trò xếp ở Sprint 4).
+- FR-AUTH-05 *Một phần*: quy tắc "Cashier chỉ bán tại chi nhánh được gán" mới được ép lúc tạo tài khoản (bắt buộc có chi nhánh hợp lệ, `UserService.assertBranchRule`); kiểm tra lúc bán đi cùng POS checkout (Sprint 4). Tạo, khóa/mở, đặt lại mật khẩu đã có test.
 - Quan sát L-01 (báo cáo thủ công): số điện thoại cũng duy nhất toàn hệ thống và trả `AU40901`, trong khi kế hoạch chỉ nêu email duy nhất. Không phải lỗi; cần bổ sung vào kế hoạch và bảng mã lỗi.
 - Quan sát L-02 (báo cáo thủ công): access token đã cấp trước khi khóa tài khoản vẫn dùng được đến khi hết hạn (tối đa 60 phút). Là hệ quả của JWT không trạng thái, chưa có yêu cầu nào cấm; ghi nhận để nhóm quyết định.
 
@@ -35,9 +36,9 @@ Ghi chú AUTH:
 | FR-PROD-02 | Sản phẩm đơn / có biến thể, mỗi biến thể là SKU; mã SKU duy nhất (`PR40901`); tên khớp regex | Kế hoạch 2.2; `V2` (product, sku) | `…/application/catalog/ProductService.java`, `…/application/catalog/SkuService.java`, `…/web/catalog/ProductController.java`, `…/web/catalog/SkuController.java`, `…/web/catalog/SkuRequest.java` | TC-PROD-01..06: `ProductApiIT`, `TenantIsolationIT` | M3 | Xong |
 | FR-PROD-03 | Mã vạch EAN-13 tự sinh có check digit / nhập tay; duy nhất trong tenant; in tem | Kế hoạch 2.2; `V2` (sku.barcode) | `…/domain/service/Ean13.java`, `…/application/catalog/SkuService.java`, `…/web/catalog/SkuController.java` | TC-PROD-07, 08: `Ean13Test`, `ProductApiIT` | M3 (API), M6 (in tem Admin) | Một phần |
 | FR-PROD-04 | Giá lẻ/giá sỉ > 0; đổi giá không đổi đơn đã tạo | Kế hoạch 2.2; `V2` (sku), `V4` (order_item.unit_price) | `…/application/catalog/SkuService.java`, `…/domain/model/OrderItem.java` | TC-PROD-09, 10: `ProductApiIT.changesPricesWithoutAffectingExistingOrders` | M3 | Xong |
-| FR-PROD-05 | Tìm theo tên/SKU/mã vạch, lọc, phân trang 20 dòng | Kế hoạch 2.2 | `…/application/catalog/ProductService.java`, `…/application/catalog/SkuService.java`, `…/application/common/PageResult.java`, `…/application/common/Paging.java` | TC-PROD-11, 12: `ProductApiIT.searchesByNameSkuAndBarcodeWithPaging` | M3 | Xong |
+| FR-PROD-05 | Tìm theo tên/SKU/mã vạch, lọc, phân trang 20 dòng | Kế hoạch 2.2 | `…/application/catalog/ProductService.java`, `…/application/catalog/SkuService.java`, `…/application/common/PageResult.java`, `…/application/common/Paging.java` | TC-PROD-11, 12: `ProductApiIT.searchesByNameSkuAndBarcodeWithPaging` (cả lọc theo trạng thái) | M3 | Một phần |
 
-Ghi chú PROD: FR-PROD-03 *Một phần* vì "in tem mã vạch từ Admin" (TC-UI-02) chưa chạy tay; phần API đã có test.
+Ghi chú PROD: FR-PROD-03 *Một phần* vì "in tem mã vạch từ Admin" (TC-UI-02) chưa chạy tay; phần API đã có test. FR-PROD-05 *Một phần* vì bộ lọc theo danh mục và thương hiệu (`ProductController`, tham số `categoryId`, `brandId`) chưa có test; `ProductApiIT` mới kiểm tra tìm kiếm, phân trang và lọc theo trạng thái.
 
 ### 2.3 INV
 
@@ -122,8 +123,8 @@ Ghi chú: NFR-MAINT-02 *Một phần*, phần chặn merge theo ngưỡng ở Sp
 
 | Trạng thái | Số mã |
 |---|---|
-| Xong | 15 |
-| Một phần | 12 |
+| Xong | 13 |
+| Một phần | 14 |
 | Chưa — Sprint 3 | 8 |
 | Chưa — Sprint 4 | 6 |
 | Chưa — Sprint 5 | 3 |

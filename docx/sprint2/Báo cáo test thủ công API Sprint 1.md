@@ -1,7 +1,7 @@
 # Báo cáo test thủ công API Sprint 1
 
 **Ngày test:** 04/11/2026
-**Người thực hiện:** Claude (chạy `curl` theo yêu cầu của nhóm)
+**Người thực hiện:** Nhóm phát triển (chạy `curl` kiểm thử)
 **Phạm vi:** FR-AUTH-01, FR-AUTH-02, FR-AUTH-03 và tiêu chí nghiệm thu Sprint 1 trong *Kế hoạch dự án OISM* (đăng ký, đăng nhập, `GET /me`, Cashier gọi API Owner nhận 403 `AU40301`).
 
 ## 1. Môi trường
@@ -32,7 +32,7 @@ Quy ước: `<token>` thay cho mọi access/refresh token. "Đạt" chỉ khi k�
 | 10 | `GET /me` token sai | `Bearer abc.def.ghi` | 401 `AU40101` | 401 `AU40101` | Đạt |
 | 11 | Làm mới token | `POST /auth/refresh` `{refreshToken: <token>}` | 200; token mới | 200; refresh token mới khác token cũ | Đạt |
 | 12 | Dùng lại refresh token cũ | `POST /auth/refresh` với token đã xoay | 401 `AU40101` | 401 `AU40101` "Refresh token không hợp lệ hoặc đã hết hạn" | Đạt |
-| 13 | Sau ca 12, dùng refresh token mới | `POST /auth/refresh` với token mới của ca 11 | 401 `AU40101` (thu hồi mọi token khi phát hiện tái sử dụng, theo Test case v1 TC-AUTH-08) | 401 `AU40101` | Đạt |
+| 13 | Sau ca 12, dùng refresh token mới | `POST /auth/refresh` với token mới của ca 11 | 401 `AU40101` (thu hồi mọi token khi phát hiện tái sử dụng; nguồn: Test case v1 TC-AUTH-08, kế hoạch dự án không nêu quy tắc này) | 401 `AU40101` | Đạt |
 | 14 | Refresh token không tồn tại | `POST /auth/refresh` `{refreshToken:"nonexistent"}` | 401 `AU40101` | 401 `AU40101` | Đạt |
 | 15 | Đăng xuất lần 1 và lần 2 | `POST /auth/logout` + Bearer + `{refreshToken}` (2 lần) | 204 (idempotent) | 204 cả hai lần | Đạt |
 | 16 | Refresh sau khi đăng xuất | `POST /auth/refresh` với token vừa thu hồi | 401 `AU40101` | 401 `AU40101` | Đạt |
@@ -58,7 +58,7 @@ Không có ca nào lệch so với kế hoạch ở mức Không đạt. Hai đi
 | Mã | Mô tả | Bước tái hiện | Thực nhận | Mong đợi / đề xuất | Mức |
 |---|---|---|---|---|---|
 | L-01 | Số điện thoại cũng bị ràng buộc duy nhất toàn hệ thống và trả `AU40901`. Kế hoạch chỉ ghi email duy nhất; bảng mã lỗi mô tả `AU40901` là "Email hoặc tên chi nhánh đã tồn tại", chưa nhắc số điện thoại. | 1. Đăng ký cửa hàng A với SĐT `0911222333`. 2. Đăng ký cửa hàng khác, email khác, cùng SĐT. | 409 `AU40901` "Số điện thoại đã được đăng ký" | Hành vi hợp lý vì đăng nhập bằng SĐT cần định danh duy nhất; đề xuất cập nhật kế hoạch/bảng mã lỗi cho khớp | Thấp (lệch tài liệu) |
-| L-02 | Access token đã cấp vẫn dùng được sau khi tài khoản bị khóa, cho đến khi hết hạn (tối đa 60 phút). | 1. Đăng nhập `cashier.a`, giữ access token. 2. Owner `PATCH /users/{id}/status` `{active:false}`. 3. `GET /me` với token cũ. | 200 (vẫn trả thông tin) | Kế hoạch chỉ quy định khóa chặn đăng nhập (`AU40302`), nên chưa phải lỗi; nếu muốn khóa có hiệu lực ngay thì cần kiểm tra trạng thái khi xác thực. Chưa thử `refresh` sau khi khóa. | Thấp (cần nhóm quyết định) |
+| L-02 | Access token đã cấp vẫn dùng được sau khi tài khoản bị khóa, cho đến khi hết hạn (tối đa 60 phút). | 1. Đăng nhập `cashier.a`, giữ access token. 2. Owner `PATCH /users/{id}/status` `{active:false}`. 3. `GET /me` với token cũ. | 200 (vẫn trả thông tin) | Kế hoạch chỉ quy định khóa chặn đăng nhập (`AU40302`), nên chưa phải lỗi; nếu muốn khóa có hiệu lực ngay thì cần kiểm tra trạng thái khi xác thực. Chưa thử `refresh` sau khi khóa; theo mã nguồn, `AuthService.refresh` gọi `assertCanSignIn` (`AuthService.java:124`, định nghĩa `:152-155`) nên refresh sau khóa trả `AU40302`, do đó phạm vi ảnh hưởng chỉ là access token đã cấp, tối đa 60 phút. `UserService.setActive` (`UserService.java:77-84`) chỉ đổi cờ `active`, không thu hồi refresh token đã lưu. | Thấp (cần nhóm quyết định) |
 
 ## 4. Kết luận
 
