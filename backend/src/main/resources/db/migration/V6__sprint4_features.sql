@@ -10,6 +10,7 @@ CREATE TABLE IF NOT EXISTS stock_alert (
     threshold INT NOT NULL,
     available_at_alert INT NOT NULL,
     created_at TIMESTAMPTZ NOT NULL DEFAULT now(),
+    updated_at TIMESTAMPTZ NOT NULL DEFAULT now(),
     resolved_at TIMESTAMPTZ
 );
 
@@ -31,6 +32,7 @@ CREATE TABLE IF NOT EXISTS daily_report (
     completed_orders INT NOT NULL DEFAULT 0,
     cancelled_orders INT NOT NULL DEFAULT 0,
     created_at TIMESTAMPTZ NOT NULL DEFAULT now(),
+    updated_at TIMESTAMPTZ NOT NULL DEFAULT now(),
     CONSTRAINT uq_daily_report_tenant_date UNIQUE (tenant_id, report_date)
 );
 
