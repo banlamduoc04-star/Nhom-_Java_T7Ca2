@@ -1,5 +1,6 @@
 # Chay toan he thong: docker compose up -d --build
-# Giao dien (Next.js) la tuy chon: docker compose --profile frontend up -d --build
+# Giao dien (React + Vite, nginx) la tuy chon: docker compose --profile frontend up -d --build
+# Nap du lieu mau demo: dat OISM_SEED_ENABLED=true (xem docx/Huong-dan-chay-du-an.md)
 # Chi chay CSDL de dev backend bang IDE: docker compose up -d postgres
 services:
   postgres:
@@ -32,7 +33,9 @@ services:
       OISM_DB_PASSWORD: ${POSTGRES_PASSWORD:-postgres}
       # Khoa chi dung de dev/demo (>= 32 byte). Moi truong that phai dat OISM_JWT_SECRET rieng.
       OISM_JWT_SECRET: ${OISM_JWT_SECRET:-docker-dev-secret-change-me-0123456789-abcdef}
-      OISM_CORS_ORIGINS: http://localhost:3000,http://localhost:3001
+      OISM_CORS_ORIGINS: http://localhost:3000,http://localhost:3001,http://localhost:5173
+      # true: nap 2 tenant mau (owner.a@oism.vn / owner.b@oism.vn, mat khau Oism@12345). Chi dung dev/demo.
+      OISM_SEED_ENABLED: ${OISM_SEED_ENABLED:-false}
     ports:
       - "8080:8080"
     restart: unless-stopped
@@ -47,7 +50,7 @@ services:
     depends_on:
       - backend
     ports:
-      - "3000:3000"
+      - "3000:80"
     restart: unless-stopped
 
   frontend-pos:
@@ -60,7 +63,7 @@ services:
     depends_on:
       - backend
     ports:
-      - "3001:3000"
+      - "3001:80"
     restart: unless-stopped
 
 volumes:

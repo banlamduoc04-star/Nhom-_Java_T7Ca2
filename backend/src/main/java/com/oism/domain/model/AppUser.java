@@ -59,6 +59,10 @@ public class AppUser extends TenantScopedEntity {
         return phone;
     }
 
+    public void setPhone(String phone) {
+        this.phone = phone;
+    }
+
     public String getPasswordHash() {
         return passwordHash;
     }
@@ -77,6 +81,10 @@ public class AppUser extends TenantScopedEntity {
 
     public Role getRole() {
         return role;
+    }
+
+    public void setRole(Role role) {
+        this.role = role;
     }
 
     public UUID getBranchId() {

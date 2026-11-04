@@ -15,6 +15,7 @@ public enum ErrorCode {
     AU40302(403, "Tài khoản đã bị khóa"),
     AU40401(404, "Không tìm thấy người dùng hoặc chi nhánh"),
     AU40901(409, "Email hoặc tên chi nhánh đã tồn tại"),
+    AU40902(409, "Không ẩn được chi nhánh còn tồn kho hoặc còn đơn chưa kết thúc"),
 
     // PROD
     PR40001(400, "Dữ liệu sản phẩm/SKU/giá không hợp lệ"),

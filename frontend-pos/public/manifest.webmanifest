@@ -1,0 +1,13 @@
+{
+  "name": "OISM POS",
+  "short_name": "OISM POS",
+  "description": "Bán hàng tại quầy - Omnichannel Inventory and Sales Management",
+  "start_url": "/",
+  "display": "standalone",
+  "orientation": "any",
+  "background_color": "#ffffff",
+  "theme_color": "#1677ff",
+  "icons": [
+    { "src": "/icon.svg", "sizes": "any", "type": "image/svg+xml", "purpose": "any maskable" }
+  ]
+}

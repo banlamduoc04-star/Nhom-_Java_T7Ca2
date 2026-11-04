@@ -30,8 +30,6 @@ out/
 # Tai lieu noi bo (khong day len GitHub)
 docs/
 
-# Dau ra cua Claude
-Claude outputs/
 
 # Backend / frontend build
 backend/target/
