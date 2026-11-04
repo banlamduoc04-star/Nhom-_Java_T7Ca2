@@ -32,3 +32,8 @@ docs/
 
 # Dau ra cua Claude
 Claude outputs/
+
+# Backend / frontend build
+backend/target/
+frontend-*/node_modules/
+frontend-*/dist/
