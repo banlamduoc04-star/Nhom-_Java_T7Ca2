@@ -144,5 +144,4 @@ Lỗi trả về thống nhất dạng `{"errorCode": "IV40901", "message": "...
 ## 🤝 Quy tắc làm việc
 
 - Nhánh: `main`, `develop`, `feature/*`.
-- Mỗi pull request cần 1 người duyệt và CI xanh (biên dịch + test) mới được merge.
-- Thư mục `docs/` là tài liệu nội bộ, không đẩy lên GitHub.
+
