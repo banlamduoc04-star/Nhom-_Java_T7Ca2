@@ -5,6 +5,7 @@ import java.io.IOException;
 import java.util.UUID;
 import java.util.concurrent.ConcurrentHashMap;
 import java.util.concurrent.ConcurrentMap;
+import java.util.function.Supplier;
 
 import org.springframework.stereotype.Service;
 import org.springframework.web.servlet.mvc.method.annotation.SseEmitter;
@@ -15,9 +16,19 @@ public class OrderEventService {
     private final ConcurrentMap<String, SseEmitter> clients =
             new ConcurrentHashMap<>();
 
+    private final Supplier<SseEmitter> emitterFactory;
+
+    public OrderEventService() {
+        this(() -> new SseEmitter(0L));
+    }
+
+    OrderEventService(Supplier<SseEmitter> emitterFactory) {
+        this.emitterFactory = emitterFactory;
+    }
+
     public SseEmitter subscribe() {
         String clientId = UUID.randomUUID().toString();
-        SseEmitter emitter = new SseEmitter(0L);
+        SseEmitter emitter = emitterFactory.get();
 
         clients.put(clientId, emitter);
 
