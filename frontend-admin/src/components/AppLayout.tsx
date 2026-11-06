@@ -43,7 +43,7 @@ const ENTRIES: Entry[] = [
 
 const ROLE_LABEL: Record<Role, string> = { OWNER: 'Chủ cửa hàng', STAFF: 'Nhân viên', CASHIER: 'Thu ngân' }
 
-// Âm thanh thông báo (Web Audio API)
+// Âm thanh thông báo 
 function playNotificationSound() {
   try {
     const AudioCtx = window.AudioContext || (window as unknown as { webkitAudioContext: typeof AudioContext }).webkitAudioContext
@@ -53,13 +53,13 @@ function playNotificationSound() {
     osc.connect(gain)
     gain.connect(ctx.destination)
     osc.type = 'sine'
-    osc.frequency.setValueAtTime(587.33, ctx.currentTime) // D5
-    osc.frequency.setValueAtTime(880, ctx.currentTime + 0.1) // A5
+    osc.frequency.setValueAtTime(587.33, ctx.currentTime)
+    osc.frequency.setValueAtTime(880, ctx.currentTime + 0.1) 
     gain.gain.setValueAtTime(0.2, ctx.currentTime)
     gain.gain.exponentialRampToValueAtTime(0.001, ctx.currentTime + 0.5)
     osc.start()
     osc.stop(ctx.currentTime + 0.5)
-  } catch { /* ignore */ }
+  } catch { }
 }
 
 export default function AppLayout() {
@@ -88,7 +88,7 @@ export default function AppLayout() {
     })
 
     client.onConnect = () => {
-      // 1. Đơn hàng mới
+      //Đơn hàng mới
       client.subscribe(`/topic/tenants/${user.tenantId}/orders/new`, (message) => {
         if (message.body) {
           try {
@@ -100,11 +100,11 @@ export default function AppLayout() {
               placement: 'topRight',
               duration: 6,
             })
-          } catch { /* ignore */ }
+          } catch {  }
         }
       })
 
-      // 2. Cảnh báo tồn kho
+      //Cảnh báo tồn kho
       client.subscribe(`/topic/tenants/${user.tenantId}/alerts`, (message) => {
         if (message.body) {
           try {
@@ -117,7 +117,7 @@ export default function AppLayout() {
               duration: 6,
             })
             alertApi.count().then((r) => setOpenAlertsCount(r.openAlerts)).catch(() => undefined)
-          } catch { /* ignore */ }
+          } catch {  }
         }
       })
     }
