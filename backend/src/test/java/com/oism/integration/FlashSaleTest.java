@@ -39,7 +39,8 @@ class FlashSaleTest extends AbstractIntegrationTest {
 
         UUID tenantId = s.getTenantId();
         UUID branchId = s.getBranchId();
-        UUID userId = s.getUserId();
+        // Sửa lỗi: Dùng UUID ngẫu nhiên thay vì s.getUserId() vì class Session không có hàm này
+        UUID userId = UUID.randomUUID(); 
         UUID skuUUID = UUID.fromString(skuId);
 
         int threads = 50;
