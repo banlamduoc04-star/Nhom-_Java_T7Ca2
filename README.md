@@ -139,8 +139,3 @@ Lỗi trả về thống nhất dạng `{"errorCode": "IV40901", "message": "...
 | 4 | POS, realtime, tác vụ nền, báo cáo ✅ |
 | 5 | Kiểm thử, hoàn thiện, Docker Compose + seed data, CI/CD, tài liệu |
 
-## 🤝 Quy tắc làm việc
-
-- Nhánh: `main`, `develop`, `feature/*`.
-- Mỗi pull request cần 1 người duyệt và CI xanh (biên dịch + test) mới được merge.
-- Thư mục `docs/internal/` là tài liệu nội bộ, không đẩy lên GitHub.
