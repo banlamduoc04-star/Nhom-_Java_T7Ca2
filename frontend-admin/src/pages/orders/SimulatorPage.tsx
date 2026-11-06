@@ -80,7 +80,7 @@ export default function SimulatorPage() {
     }
   }
 
-  // 2. XỬ LÝ BẮN WEBHOOK SÀN TMĐT
+  // 2. XỬ LÝ BẮN WEBHOOK SÀN thuong mai dien tu
   const handleSendWebhook = async (values: WebhookFormValues) => {
     setWebhookLoading(true)
     setWebhookResult(null)
@@ -110,7 +110,7 @@ export default function SimulatorPage() {
       </Typography.Title>
 
       <Row gutter={24}>
-        {/* CỘT TRÁI: FLASH SALE CONCURRENCY SIMULATOR */}
+        {/* cột trái FLASH SALE CONCURRENCY SIMULATOR */}
         <Col xs={24} lg={12}>
           <Card title="1. Mô phỏng Đua đơn Flash Sale (Đa luồng)" style={{ height: '100%' }}>
             <Alert
@@ -180,7 +180,7 @@ export default function SimulatorPage() {
               </Button>
             </Form>
 
-            {/* KẾT QUẢ FLASH SALE (ĐÃ NÂNG CẤP UI) */}
+            {/* KẾT QUẢ FLASH SALE  */}
             {simResult && (
               <div style={{
                 marginTop: 24,
