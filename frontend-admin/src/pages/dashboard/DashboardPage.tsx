@@ -1,10 +1,10 @@
 import { useEffect, useState } from 'react'
-import { Card, Col, Row, Statistic, Table, Tag, Typography, Button, Space, message, Badge } from 'antd'
-import { ShoppingCartOutlined, DollarOutlined, AlertOutlined, TrophyOutlined, SyncOutlined } from '@ant-design/icons'
+import { Card, Col, Row, Statistic, Table, Tag, Typography, Button, Space, message, Badge, Popconfirm, Empty } from 'antd'
+import { ShoppingCartOutlined, DollarOutlined, AlertOutlined, TrophyOutlined, SyncOutlined, QuestionCircleOutlined } from '@ant-design/icons'
 import { useNavigate } from 'react-router-dom'
 import { alertApi, orderApi, reportApi, stockReportApi } from '../../api/services'
 import type { StockAlert, TopSellingItem } from '../../api/types'
-
+import { handleApiError } from '../../api/errorHandler'
 const money = (v: number) => `${v.toLocaleString('vi-VN')} ₫`
 
 export default function DashboardPage() {
@@ -41,8 +41,8 @@ export default function DashboardPage() {
         if (o.status === 'CANCELLED') counts.cancelled++
       })
       setOrderCounts(counts)
-    } catch {
-      message.error('Không thể tải dữ liệu dashboard')
+    } catch (err) {
+      handleApiError(err)
     } finally {
       setLoading(false)
     }
@@ -57,8 +57,8 @@ export default function DashboardPage() {
       await alertApi.resolve(id)
       message.success('Đã đóng cảnh báo')
       loadData()
-    } catch {
-      message.error('Lỗi khi đóng cảnh báo')
+    } catch (err) {
+      handleApiError(err)
     }
   }
 
@@ -102,7 +102,7 @@ export default function DashboardPage() {
             <Statistic
               title="Cảnh báo tồn kho thấp"
               value={alerts.length}
-              valueStyle={{ color: alerts.length > 0 ? '#cf1322' : '#3f8600' }}
+              styles={{ content: { color: alerts.length > 0 ? '#cf1322' : '#3f8600' } }}
               prefix={<AlertOutlined style={{ color: '#f5222d' }} />}
             />
           </Card>
@@ -125,7 +125,16 @@ export default function DashboardPage() {
               dataSource={alerts}
               rowKey="id"
               size="small"
+              loading={loading}
               pagination={{ pageSize: 5 }}
+              locale={{
+                emptyText: (
+                  <Empty
+                    image={Empty.PRESENTED_IMAGE_SIMPLE}
+                    description="Hiện tại không có cảnh báo tồn kho nào"
+                  />
+                ),
+              }}
               columns={[
                 { title: 'Sản phẩm', dataIndex: 'productName', key: 'productName' },
                 { title: 'Mã SKU', dataIndex: 'skuCode', key: 'skuCode', render: (c) => <Tag>{c}</Tag> },
@@ -143,7 +152,17 @@ export default function DashboardPage() {
                   title: 'Thao tác',
                   key: 'action',
                   render: (_, r) => (
-                    <Button size="small" onClick={() => resolveAlert(r.id)}>Đóng</Button>
+                    <Popconfirm
+                      title="Xác nhận đóng cảnh báo?"
+                      description="Hành động này sẽ xác nhận xử lý cảnh báo tồn kho."
+                      icon={<QuestionCircleOutlined style={{ color: 'red' }} />}
+                      onConfirm={() => resolveAlert(r.id)}
+                      okText="Đóng"
+                      cancelText="Hủy"
+                      okButtonProps={{ danger: true }}
+                    >
+                      <Button size="small" danger type="text">Đóng</Button>
+                    </Popconfirm>
                   ),
                 },
               ]}
@@ -165,7 +184,16 @@ export default function DashboardPage() {
               dataSource={topSelling}
               rowKey="skuId"
               size="small"
+              loading={loading}
               pagination={false}
+              locale={{
+                emptyText: (
+                  <Empty
+                    image={Empty.PRESENTED_IMAGE_SIMPLE}
+                    description="Chưa có dữ liệu bán chạy trong 30 ngày qua"
+                  />
+                ),
+              }}
               columns={[
                 { title: 'Sản phẩm', dataIndex: 'productName', key: 'productName' },
                 { title: 'Mã SKU', dataIndex: 'skuCode', key: 'skuCode' },
