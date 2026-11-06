@@ -23,7 +23,7 @@ export default function SaleScreen({ user, onLogout }: Props) {
   const [cart, setCart] = useState<CartLine[]>([])
   const [notice, setNotice] = useState<Notice | null>(null)
 
-  // Payment states
+  // Payment
   const [payOpen, setPayOpen] = useState(false)
   const [paymentMethod, setPaymentMethod] = useState<'CASH' | 'QR'>('CASH')
   const [cashGiven, setCashGiven] = useState<number>(0)
@@ -114,14 +114,14 @@ export default function SaleScreen({ user, onLogout }: Props) {
       setReceipt(receiptData)
       setNotice({ kind: 'ok', text: 'Thanh toán thành công!' })
     } catch (err) {
-      // Hiển thị lỗi trực quan hơn thay vì alert()
+      // Hiển thị lỗi thanh toán
       setNotice({ kind: 'error', text: `Lỗi thanh toán: ${errorText(err)}` })
     } finally {
       setBusy(false)
     }
   }
 
-  // Phím tắt: F2 tìm, F9 thanh toán, Esc hủy giỏ (hoặc đóng hộp thoại)
+  // Phím tắt: F2 tìm, F9 thanh toán, Esc hủy giỏ
   useEffect(() => {
     const onKey = (e: KeyboardEvent) => {
       if (e.key === 'F2') {
@@ -239,7 +239,7 @@ export default function SaleScreen({ user, onLogout }: Props) {
         </section>
       </main>
 
-      {/* Modal thanh toán */}
+      {/* thanh toán */}
       {payOpen && (
         <div className="modal no-print" role="dialog" aria-modal="true" aria-label="Thanh toán">
           <div className="card" style={{ width: 460 }}>
@@ -317,7 +317,7 @@ export default function SaleScreen({ user, onLogout }: Props) {
         </div>
       )}
 
-      {/* Modal hóa đơn 80mm */}
+      {/* Modal hóa đơn */}
       {receipt && (
         <div className="modal" role="dialog" aria-modal="true" aria-label="Hóa đơn thanh toán">
           <div className="card" style={{ width: 380 }}>
