@@ -25,10 +25,6 @@ import static org.springframework.test.web.servlet.request.MockMvcRequestBuilder
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.put;
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.status;
 
-/**
- * Nen cho test tich hop: PostgreSQL that (Testcontainers, dung chung cho moi lop test), Flyway chay that,
- * Spring Security that. Moi test tu tao tenant rieng bang email ngau nhien nen khong dung nhau.
- */
 @SpringBootTest
 @AutoConfigureMockMvc
 abstract class AbstractIntegrationTest {
@@ -61,7 +57,7 @@ abstract class AbstractIntegrationTest {
                 Map.of("storeName", "Shop " + UUID.randomUUID().toString().substring(0, 6),
                         "fullName", "Chu Shop", "email", email, "password", PASSWORD), 201));
         String token = login(email, PASSWORD);
-        return new Session(email, token, registered.get("tenantId").asText(), registered.get("branchId").asText());
+        return new Session(email, token, registered.get("tenantId").asText(), registered.get("branchId").asText(), registered.get("userId").asText());
     }
 
     protected String login(String identifier, String password) {
@@ -136,9 +132,7 @@ abstract class AbstractIntegrationTest {
         call(delete(url), s.token(), null, status);
     }
 
-    // ----- Du lieu mau dung chung -----
-
-    /** Tao san pham co 1 SKU don gian, tra ve SKU dau tien. */
+    /**Tao san pham co 1 SKU don gian, tra ve SKU dau tien. */
     protected JsonNode newProduct(Session s, String name, String skuCode, String price) {
         Map<String, Object> sku = new LinkedHashMap<>();
         sku.put("code", skuCode);
@@ -153,6 +147,7 @@ abstract class AbstractIntegrationTest {
         return POST(s, "/api/v1/purchase-receipts/" + draft.get("id").asText() + "/confirm", null, 200);
     }
 
-    protected record Session(String email, String token, String tenantId, String branchId) {
+    // thêm userId vào record Session để FlashSaleTest có thể sử dụng
+    protected record Session(String email, String token, String tenantId, String branchId, String userId) {
     }
 }
