@@ -14,3 +14,4 @@ public interface DailyReportRepository extends JpaRepository<DailyReport, UUID> 
 
     List<DailyReport> findByTenantIdOrderByReportDateDesc(UUID tenantId);
 }
+

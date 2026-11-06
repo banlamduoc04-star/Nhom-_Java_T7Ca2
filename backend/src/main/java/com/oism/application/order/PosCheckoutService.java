@@ -210,3 +210,4 @@ public class PosCheckoutService {
         return "POS-" + date + "-" + UUID.randomUUID().toString().substring(0, 8).toUpperCase();
     }
 }
+

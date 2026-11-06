@@ -15,3 +15,4 @@ public record StockAlertEvent(
         int availableAtAlert,
         Instant createdAt
 ) {}
+

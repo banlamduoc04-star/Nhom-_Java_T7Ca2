@@ -84,3 +84,4 @@ public class StockReportController {
         return dailyReportService.generateDailyReport(user.tenantId(), targetDate);
     }
 }
+

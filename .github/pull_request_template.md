@@ -42,5 +42,5 @@
 ## Checklist
 - [ ] Build xanh (`clean verify`)
 - [ ] Đã test chạy bằng Docker
-- [ ] Không đưa `docs/`, `target/`, file `.env` vào commit
+- [ ] Không đưa `docs/internal/`, `target/`, file `.env` vào commit
 - [ ] Đã cập nhật README nếu đổi cách chạy

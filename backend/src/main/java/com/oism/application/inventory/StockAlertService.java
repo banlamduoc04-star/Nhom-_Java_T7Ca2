@@ -146,3 +146,4 @@ public class StockAlertService {
         return stockAlertRepository.countByTenantIdAndStatus(tenantId, StockAlert.Status.OPEN);
     }
 }
+
