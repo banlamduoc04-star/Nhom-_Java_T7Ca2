@@ -1,5 +1,7 @@
 package com.oism.application.report;
 
+import com.oism.domain.exception.BusinessException;
+import com.oism.domain.exception.ErrorCode;
 import com.oism.domain.model.Branch;
 import com.oism.domain.model.OrderChannel;
 import com.oism.domain.model.OrderItem;
@@ -80,6 +82,9 @@ public class ProfitReportService {
 
     @Transactional(readOnly = true)
     public ProfitSummary getProfitReport(UUID tenantId, Instant from, Instant to, UUID branchId, OrderChannel channel, UUID skuId) {
+        if (from != null && to != null && from.isAfter(to)) {
+            throw new BusinessException(ErrorCode.RP40001, "Khoảng thời gian không hợp lệ: 'from' phải trước hoặc bằng 'to'");
+        }
         Specification<SalesOrder> spec = (root, query, cb) -> {
             List<Predicate> ps = new ArrayList<>();
             ps.add(cb.equal(root.get("tenantId"), tenantId));

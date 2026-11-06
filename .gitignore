@@ -35,3 +35,6 @@ docs/internal/
 backend/target/
 frontend-*/node_modules/
 frontend-*/dist/
+
+# Postman desktop app metadata
+.postman/
