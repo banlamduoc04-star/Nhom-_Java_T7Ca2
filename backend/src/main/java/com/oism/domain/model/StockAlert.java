@@ -84,3 +84,4 @@ public class StockAlert extends TenantScopedEntity {
         this.resolvedAt = Instant.now();
     }
 }
+

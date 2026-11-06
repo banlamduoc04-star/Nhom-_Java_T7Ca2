@@ -21,3 +21,4 @@ public interface StockAlertRepository extends JpaRepository<StockAlert, UUID> {
 
     long countByTenantIdAndStatus(UUID tenantId, StockAlert.Status status);
 }
+

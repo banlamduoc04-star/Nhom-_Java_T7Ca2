@@ -57,3 +57,4 @@ public class StockAlertController {
         return Map.of("openAlerts", stockAlertService.countOpenAlerts(user.tenantId()));
     }
 }
+

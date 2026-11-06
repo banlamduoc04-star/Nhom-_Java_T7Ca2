@@ -10,7 +10,7 @@ Hệ thống quản lý bán hàng và tồn kho đa kênh
 
 OISM là hệ thống quản lý bán hàng và tồn kho đa kênh theo mô hình SaaS nhiều cửa hàng (multi-tenant). Hệ thống gom đơn từ POS, Admin và các sàn (Shopee, TikTok Shop) về một nơi, theo dõi tồn kho bằng sổ cái chỉ ghi thêm, tính giá vốn bình quân gia quyền và chống bán vượt tồn kho khi nhiều đơn vào cùng lúc.
 
-Dự án chia thành **5 sprint** với **7 thành viên (M1–M7)**. Kế hoạch đầy đủ: [`docx/Kế hoạch dự án OISM – 5 Sprint, 7 thành viên.md`](docx/).
+Dự án chia thành **5 sprint** với **7 thành viên (M1–M7)**. Kế hoạch đầy đủ: [`docs/ke-hoach/ke-hoach-du-an-oism.md`](docs/ke-hoach/ke-hoach-du-an-oism.md).
 
 ## 👥 Vai trò người dùng
 
@@ -78,7 +78,7 @@ docker compose down -v                  # dừng và xóa sạch dữ liệu
 
 **Chạy cả giao diện** (tùy chọn): `docker compose --profile frontend up -d --build` rồi mở Admin ở <http://localhost:3000> và POS ở <http://localhost:3001>.
 
-**Nạp dữ liệu mẫu** (2 cửa hàng, 50 SKU, tài khoản đủ 3 vai trò): đặt `OISM_SEED_ENABLED=true` khi chạy compose. Tài khoản và mật khẩu mẫu xem [Hướng dẫn chạy dự án OISM](docx/Hướng%20dẫn%20chạy%20dự%20án%20OISM.md).
+**Nạp dữ liệu mẫu** (2 cửa hàng, 50 SKU, tài khoản đủ 3 vai trò): đặt `OISM_SEED_ENABLED=true` khi chạy compose. Tài khoản và mật khẩu mẫu xem [Hướng dẫn chạy dự án OISM](docs/huong-dan/huong-dan-chay-du-an.md).
 
 **Biến môi trường** (đặt trong file `.env` cạnh `docker-compose.yml`; mặc định đã chạy được cho dev):
 
@@ -99,7 +99,7 @@ cd ../frontend-admin && npm install && npm run dev   # Admin, http://localhost:5
 cd ../frontend-pos && npm install && npm run dev     # POS
 ```
 
-Chi tiết từng bước và xử lý lỗi: [Hướng dẫn chạy dự án OISM](docx/Hướng%20dẫn%20chạy%20dự%20án%20OISM.md). Quy ước code cho cả nhóm: [Chuẩn cấu hình chung](docx/Chuẩn%20cấu%20hình%20chung.md).
+Chi tiết từng bước và xử lý lỗi: [Hướng dẫn chạy dự án OISM](docs/huong-dan/huong-dan-chay-du-an.md). Quy ước code cho cả nhóm: [Chuẩn cấu hình chung](docs/huong-dan/chuan-cau-hinh-chung.md).
 
 > Nên đặt repo ở đường dẫn **không dấu, không khoảng trắng** để `spring-boot:run` không lỗi `ClassNotFoundException`. Bản Docker không bị ảnh hưởng.
 
@@ -123,11 +123,9 @@ Lỗi trả về thống nhất dạng `{"errorCode": "IV40901", "message": "...
 ├── README.md
 ├── docker-compose.yml         # PostgreSQL + backend (+ 2 frontend, profile "frontend")
 ├── backend/                   # Spring Boot 3 (Dockerfile, pom.xml, src/)
-│   └── legacy-reference/      # Code cũ tham khảo, không nằm trong build
 ├── frontend-admin/            # Admin Dashboard (React + Vite + TS + Ant Design)
 ├── frontend-pos/              # POS (React + Vite + TS, PWA)
-├── docx/                      # Kế hoạch, hướng dẫn chạy, chuẩn chung, tài liệu kiểm thử
-├── diagram/                   # Sơ đồ thiết kế (draw.io, docx)
+├── docs/                      # Kế hoạch, hướng dẫn, tài liệu từng sprint, sơ đồ thiết kế
 └── .github/                   # Mẫu pull request, workflow CI
 ```
 
@@ -140,8 +138,4 @@ Lỗi trả về thống nhất dạng `{"errorCode": "IV40901", "message": "...
 | 3 | Đơn hàng, chống bán vượt, chuyển kho, kiểm kê, simulator |
 | 4 | POS, realtime, tác vụ nền, báo cáo ✅ |
 | 5 | Kiểm thử, hoàn thiện, Docker Compose + seed data, CI/CD, tài liệu |
-
-## 🤝 Quy tắc làm việc
-
-- Nhánh: `main`, `develop`, `feature/*`.
 
