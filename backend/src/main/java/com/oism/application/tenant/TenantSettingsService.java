@@ -39,3 +39,4 @@ public class TenantSettingsService {
         return new TenantSettingsView(tenant.getId(), tenant.getName(), tenant.getReservationMinutes());
     }
 }
+

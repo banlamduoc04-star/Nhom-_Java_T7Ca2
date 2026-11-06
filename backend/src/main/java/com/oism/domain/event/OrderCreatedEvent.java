@@ -14,3 +14,4 @@ public record OrderCreatedEvent(
         String createdBy,
         Instant createdAt
 ) {}
+

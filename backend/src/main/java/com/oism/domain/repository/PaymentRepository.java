@@ -13,3 +13,4 @@ public interface PaymentRepository extends JpaRepository<Payment, UUID> {
 
     List<Payment> findByTenantId(UUID tenantId);
 }
+

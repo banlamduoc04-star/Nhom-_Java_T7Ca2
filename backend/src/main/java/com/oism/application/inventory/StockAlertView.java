@@ -18,3 +18,4 @@ public record StockAlertView(
         Instant createdAt,
         Instant resolvedAt
 ) {}
+

@@ -50,3 +50,4 @@ public class SettingsController {
         return tenantSettingsService.updateSettings(user.tenantId(), request.reservationMinutes());
     }
 }
+

@@ -81,3 +81,4 @@ public class DailyReport extends TenantScopedEntity {
         return cancelledOrders;
     }
 }
+

@@ -17,3 +17,4 @@ public record PosCheckoutCommand(
 ) {
     public record PosLine(UUID skuId, int quantity) {}
 }
+
