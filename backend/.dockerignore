@@ -1,5 +1,4 @@
 target/
-legacy-reference/
 .mvn/
 .idea/
 .vscode/

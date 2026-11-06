@@ -47,6 +47,7 @@ class OrderServiceTest {
     @Mock BranchRepository branchRepository;
     @Mock SkuRepository skuRepository;
     @Mock ReservationService reservationService;
+    @Mock com.oism.domain.repository.TenantRepository tenantRepository;
 
     OrderService service;
 
@@ -58,7 +59,7 @@ class OrderServiceTest {
     @BeforeEach
     void setup() {
         service = new OrderService(orderRepository, itemRepository, historyRepository,
-                branchRepository, skuRepository, reservationService);
+                branchRepository, skuRepository, reservationService, tenantRepository);
 
         Branch branch = new Branch(tenantId, "Chi nhánh 1", BranchType.STORE);
         ReflectionTestUtils.setField(branch, "id", branchId);

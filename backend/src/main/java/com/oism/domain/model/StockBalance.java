@@ -31,6 +31,14 @@ public class StockBalance extends TenantScopedEntity {
     protected StockBalance() {
     }
 
+    public StockBalance(UUID tenantId, UUID branchId, UUID skuId, int onHand, int reserved) {
+        super(tenantId);
+        this.branchId = branchId;
+        this.skuId = skuId;
+        this.onHand = onHand;
+        this.reserved = reserved;
+    }
+
     public UUID getBranchId() {
         return branchId;
     }

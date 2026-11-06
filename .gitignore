@@ -28,7 +28,7 @@ out/
 
 
 # Tai lieu noi bo (khong day len GitHub)
-docs/
+docs/internal/
 
 
 # Backend / frontend build

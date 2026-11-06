@@ -29,6 +29,8 @@ export const tokenStore = {
 
 export const api = axios.create({ baseURL: API_URL })
 
+export const data = <T>(p: Promise<{ data: T }>): Promise<T> => p.then((r) => r.data)
+
 // Tu dong gan access token vao moi request
 api.interceptors.request.use((config) => {
   const tokens = tokenStore.get()

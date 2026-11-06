@@ -157,3 +157,66 @@ export async function lookupBarcode(barcode: string, branchId: string | null): P
     barcode: data.sku.barcode, retailPrice: data.sku.retailPrice, available: data.available,
   }
 }
+
+export interface CheckoutPayload {
+  branchId: string
+  items: { skuId: string; quantity: number }[]
+  paymentMethod: 'CASH' | 'QR'
+  cashReceived?: number
+  customerName?: string
+  customerPhone?: string
+  note?: string
+}
+
+export interface CheckoutReceiptItem {
+  skuId: string
+  skuCode: string
+  productName: string
+  quantity: number
+  unitPrice: number
+  lineTotal: number
+}
+
+export interface CheckoutReceipt {
+  orderId: string
+  orderCode: string
+  status: string
+  branchId: string
+  branchName: string
+  totalAmount: number
+  paymentMethod: 'CASH' | 'QR'
+  cashReceived: number
+  changeAmount: number
+  completedAt: string
+  cashierName: string
+  items: CheckoutReceiptItem[]
+}
+
+export async function posCheckout(payload: CheckoutPayload): Promise<CheckoutReceipt> {
+  if (USE_MOCK) {
+    const total = payload.items.reduce((s, i) => s + i.quantity * 100000, 0)
+    return {
+      orderId: 'mock-order-id',
+      orderCode: 'POS-MOCK-001',
+      status: 'COMPLETED',
+      branchId: payload.branchId,
+      branchName: 'Chi nhánh demo',
+      totalAmount: total,
+      paymentMethod: payload.paymentMethod,
+      cashReceived: payload.cashReceived ?? total,
+      changeAmount: (payload.cashReceived ?? total) - total,
+      completedAt: new Date().toISOString(),
+      cashierName: 'Thu ngân demo',
+      items: payload.items.map((i) => ({
+        skuId: i.skuId,
+        skuCode: 'SKU-' + i.skuId,
+        productName: 'Sản phẩm demo',
+        quantity: i.quantity,
+        unitPrice: 100000,
+        lineTotal: i.quantity * 100000,
+      })),
+    }
+  }
+  const { data } = await http.post<CheckoutReceipt>('/pos/checkout', payload)
+  return data
+}

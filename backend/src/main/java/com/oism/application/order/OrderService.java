@@ -17,6 +17,7 @@ import com.oism.domain.repository.OrderItemRepository;
 import com.oism.domain.repository.OrderStatusHistoryRepository;
 import com.oism.domain.repository.SalesOrderRepository;
 import com.oism.domain.repository.SkuRepository;
+import com.oism.domain.repository.TenantRepository;
 import com.oism.domain.service.OrderStateMachine;
 import jakarta.persistence.criteria.Predicate;
 import org.springframework.data.domain.Page;
@@ -52,6 +53,7 @@ public class OrderService {
     private final OrderStatusHistoryRepository historyRepository;
     private final BranchRepository branchRepository;
     private final SkuRepository skuRepository;
+    private final TenantRepository tenantRepository;
     private final ReservationService reservationService;
     private final SecureRandom random = new SecureRandom();
 
@@ -60,13 +62,15 @@ public class OrderService {
                         OrderStatusHistoryRepository historyRepository,
                         BranchRepository branchRepository,
                         SkuRepository skuRepository,
-                        ReservationService reservationService) {
+                        ReservationService reservationService,
+                        TenantRepository tenantRepository) {
         this.orderRepository = orderRepository;
         this.itemRepository = itemRepository;
         this.historyRepository = historyRepository;
         this.branchRepository = branchRepository;
         this.skuRepository = skuRepository;
         this.reservationService = reservationService;
+        this.tenantRepository = tenantRepository;
     }
 
     /** POST /orders: tao don tay (Draft). Don gia chup tu gia ban le hien tai cua SKU (FR-PROD-04). */
@@ -161,7 +165,7 @@ public class OrderService {
 
         OrderStateMachine.assertTransition(OrderStatus.DRAFT, OrderStatus.RESERVED);
         order.moveTo(OrderStatus.RESERVED);
-        order.setReservedUntil(Instant.now().plus(DEFAULT_RESERVE_DURATION));
+        order.setReservedUntil(Instant.now().plus(getReservationDuration(tenantId)));
         orderRepository.save(order);
 
         historyRepository.save(new OrderStatusHistory(tenantId, order.getId(), null, OrderStatus.DRAFT, userId, "Tạo đơn"));
@@ -183,7 +187,7 @@ public class OrderService {
 
         OrderStatus fromStatus = order.getStatus();
         order.moveTo(OrderStatus.RESERVED);
-        order.setReservedUntil(Instant.now().plus(DEFAULT_RESERVE_DURATION));
+        order.setReservedUntil(Instant.now().plus(getReservationDuration(tenantId)));
         orderRepository.save(order);
 
         historyRepository.save(new OrderStatusHistory(tenantId, order.getId(), fromStatus, OrderStatus.RESERVED, userId, "Giữ hàng thành công"));
@@ -338,5 +342,9 @@ public class OrderService {
 
     private static String blankToNull(String value) {
         return value == null || value.isBlank() ? null : value.trim();
+    }
+
+    private Duration getReservationDuration(UUID tenantId) {
+        return tenantRepository.findById(tenantId).map(t -> Duration.ofMinutes(t.getReservationMinutes())).orElse(DEFAULT_RESERVE_DURATION);
     }
 }

@@ -1,5 +1,5 @@
 import { useCallback, useEffect, useRef, useState, type FormEvent } from 'react'
-import { errorText, logout, lookupBarcode, searchSkus, type Me } from './api'
+import { errorText, logout, lookupBarcode, posCheckout, searchSkus, type CheckoutReceipt, type Me } from './api'
 import { addToCart, cartTotal, itemCount, looksLikeBarcode, removeLine, setQuantity, type CartLine, type SkuInfo } from './cart'
 
 interface Props {
@@ -15,19 +15,24 @@ interface Notice {
 const money = (v: number) => `${v.toLocaleString('vi-VN')} ₫`
 const attrText = (sku: SkuInfo) => Object.values(sku.attributes).join(' / ')
 
-/**
- * Man hinh ban hang (FR-POS-01, FR-POS-02): tim theo ten/SKU/ma vach; quet ma + Enter them ngay vao gio,
- * quet lai tang so luong; F2 tim, F9 thanh toan, Esc huy gio; chan vuot hang kha dung.
- * Thanh toan va in hoa don (FR-POS-03/04) lam o Sprint 4.
- */
 export default function SaleScreen({ user, onLogout }: Props) {
   const searchRef = useRef<HTMLInputElement>(null)
+  const cashInputRef = useRef<HTMLInputElement>(null)
   const [text, setText] = useState('')
   const [results, setResults] = useState<SkuInfo[]>([])
   const [cart, setCart] = useState<CartLine[]>([])
   const [notice, setNotice] = useState<Notice | null>(null)
+
+  // Payment states
   const [payOpen, setPayOpen] = useState(false)
+  const [paymentMethod, setPaymentMethod] = useState<'CASH' | 'QR'>('CASH')
+  const [cashGiven, setCashGiven] = useState<number>(0)
   const [busy, setBusy] = useState(false)
+
+  // Receipt modal state
+  const [receipt, setReceipt] = useState<CheckoutReceipt | null>(null)
+
+  const total = cartTotal(cart)
 
   const add = useCallback((sku: SkuInfo) => {
     setCart((current) => {
@@ -77,6 +82,44 @@ export default function SaleScreen({ user, onLogout }: Props) {
     }
   }, [cart.length])
 
+  const openCheckout = useCallback(() => {
+    if (cart.length === 0) {
+      setNotice({ kind: 'error', text: 'Giỏ hàng đang trống' })
+      return
+    }
+    setCashGiven(total)
+    setPayOpen(true)
+    setTimeout(() => cashInputRef.current?.select(), 100)
+  }, [cart.length, total])
+
+  const handleCheckout = async () => {
+    if (!user.branchId) {
+      setNotice({ kind: 'error', text: 'Tài khoản chưa được gán chi nhánh để thực hiện thanh toán' })
+      return
+    }
+    if (paymentMethod === 'CASH' && cashGiven < total) {
+      alert('Tiền khách đưa chưa đủ!')
+      return
+    }
+
+    setBusy(true)
+    try {
+      const receiptData = await posCheckout({
+        branchId: user.branchId,
+        items: cart.map((c) => ({ skuId: c.sku.id, quantity: c.quantity })),
+        paymentMethod,
+        cashReceived: paymentMethod === 'CASH' ? cashGiven : total,
+      })
+      setCart([])
+      setPayOpen(false)
+      setReceipt(receiptData)
+    } catch (err) {
+      alert(`Lỗi thanh toán: ${errorText(err)}`)
+    } finally {
+      setBusy(false)
+    }
+  }
+
   // Phim tat: F2 tim, F9 thanh toan, Esc huy gio (hoac dong hop thoai)
   useEffect(() => {
     const onKey = (e: KeyboardEvent) => {
@@ -86,14 +129,18 @@ export default function SaleScreen({ user, onLogout }: Props) {
         searchRef.current?.select()
       } else if (e.key === 'F9') {
         e.preventDefault()
-        if (cart.length > 0) {
-          setPayOpen(true)
-        } else {
-          setNotice({ kind: 'error', text: 'Giỏ hàng đang trống' })
+        if (payOpen) {
+          handleCheckout()
+        } else if (!receipt) {
+          openCheckout()
         }
       } else if (e.key === 'Escape') {
-        if (payOpen) {
+        if (receipt) {
+          setReceipt(null)
+          searchRef.current?.focus()
+        } else if (payOpen) {
           setPayOpen(false)
+          searchRef.current?.focus()
         } else {
           clearCart()
         }
@@ -101,7 +148,7 @@ export default function SaleScreen({ user, onLogout }: Props) {
     }
     window.addEventListener('keydown', onKey)
     return () => window.removeEventListener('keydown', onKey)
-  }, [cart.length, payOpen, clearCart])
+  }, [cart.length, payOpen, receipt, openCheckout, clearCart])
 
   const changeQuantity = (skuId: string, quantity: number) => {
     const result = setQuantity(cart, skuId, quantity)
@@ -109,19 +156,28 @@ export default function SaleScreen({ user, onLogout }: Props) {
     setNotice(result.error ? { kind: 'error', text: result.error } : null)
   }
 
+  const changeDue = Math.max(0, cashGiven - total)
+
   return (
     <div className="pos">
-      <header className="bar">
+      <header className="bar no-print">
         <strong>OISM POS</strong>
         <span className="muted">{user.tenantName} · {user.fullName}</span>
         <button onClick={() => logout().then(onLogout)}>Đăng xuất</button>
       </header>
 
-      <main className="layout">
+      <main className="layout no-print">
         <section className="card">
           <form onSubmit={submit} className="search">
-            <input ref={searchRef} value={text} onChange={(e) => setText(e.target.value)} autoFocus disabled={busy}
-              placeholder="Quét mã vạch + Enter, hoặc gõ tên / mã SKU (F2)" aria-label="Tìm sản phẩm" />
+            <input
+              ref={searchRef}
+              value={text}
+              onChange={(e) => setText(e.target.value)}
+              autoFocus
+              disabled={busy}
+              placeholder="Quét mã vạch + Enter, hoặc gõ tên / mã SKU (F2)"
+              aria-label="Tìm sản phẩm"
+            />
             <button type="submit" className="primary" disabled={busy}>Tìm</button>
           </form>
           {notice && <div className={`alert ${notice.kind}`} role="status">{notice.text}</div>}
@@ -153,8 +209,13 @@ export default function SaleScreen({ user, onLogout }: Props) {
                     <td>{money(sku.retailPrice)}</td>
                     <td className="qty">
                       <button aria-label="Giảm" onClick={() => changeQuantity(sku.id, quantity - 1)}>−</button>
-                      <input type="number" min={1} value={quantity} aria-label={`Số lượng ${sku.code}`}
-                        onChange={(e) => changeQuantity(sku.id, Number(e.target.value))} />
+                      <input
+                        type="number"
+                        min={1}
+                        value={quantity}
+                        aria-label={`Số lượng ${sku.code}`}
+                        onChange={(e) => changeQuantity(sku.id, Number(e.target.value))}
+                      />
                       <button aria-label="Tăng" onClick={() => changeQuantity(sku.id, quantity + 1)}>+</button>
                     </td>
                     <td>{money(sku.retailPrice * quantity)}</td>
@@ -166,22 +227,136 @@ export default function SaleScreen({ user, onLogout }: Props) {
           )}
           <div className="total">
             <span>Tổng cộng</span>
-            <strong>{money(cartTotal(cart))}</strong>
+            <strong>{money(total)}</strong>
           </div>
           <div className="actions">
-            <button onClick={clearCart} disabled={cart.length === 0}>Hủy giỏ (Esc)</button>
-            <button className="primary" onClick={() => setPayOpen(true)} disabled={cart.length === 0}>Thanh toán (F9)</button>
+            <button onClick={clearCart} disabled={cart.length === 0 || busy}>Hủy giỏ (Esc)</button>
+            <button className="primary" onClick={openCheckout} disabled={cart.length === 0 || busy}>
+              Thanh toán (F9)
+            </button>
           </div>
         </section>
       </main>
 
+      {/* Modal thanh toan */}
       {payOpen && (
-        <div className="modal" role="dialog" aria-modal="true" aria-label="Thanh toán">
-          <div className="card">
-            <h2>Thanh toán</h2>
-            <p>Tổng tiền: <strong>{money(cartTotal(cart))}</strong></p>
-            <p className="muted">Thanh toán tiền mặt/QR, tạo đơn một giao dịch và in hóa đơn 80 mm sẽ được nối API checkout ở Sprint 4.</p>
-            <div className="actions"><button onClick={() => setPayOpen(false)}>Đóng (Esc)</button></div>
+        <div className="modal no-print" role="dialog" aria-modal="true" aria-label="Thanh toán">
+          <div className="card" style={{ width: 460 }}>
+            <h2>Thanh toán đơn hàng</h2>
+            <div style={{ fontSize: '1.2rem', marginBottom: 12 }}>
+              Tổng tiền thanh toán: <strong style={{ color: '#1677ff' }}>{money(total)}</strong>
+            </div>
+
+            <div className="pay-methods">
+              <button
+                type="button"
+                className={paymentMethod === 'CASH' ? 'active' : ''}
+                onClick={() => setPaymentMethod('CASH')}
+              >
+                💵 Tiền mặt
+              </button>
+              <button
+                type="button"
+                className={paymentMethod === 'QR' ? 'active' : ''}
+                onClick={() => setPaymentMethod('QR')}
+              >
+                📱 Chuyển khoản QR
+              </button>
+            </div>
+
+            {paymentMethod === 'CASH' ? (
+              <div>
+                <label style={{ display: 'block', marginBottom: 6, fontWeight: 600 }}>Tiền khách đưa (₫):</label>
+                <input
+                  ref={cashInputRef}
+                  type="number"
+                  step={1000}
+                  value={cashGiven}
+                  onChange={(e) => setCashGiven(Number(e.target.value) || 0)}
+                  style={{ fontSize: '1.2rem', fontWeight: 'bold' }}
+                />
+                <div className="quick-cash">
+                  <button type="button" onClick={() => setCashGiven(total)}>Đúng tiền</button>
+                  <button type="button" onClick={() => setCashGiven(100000)}>100k</button>
+                  <button type="button" onClick={() => setCashGiven(200000)}>200k</button>
+                  <button type="button" onClick={() => setCashGiven(500000)}>500k</button>
+                  <button type="button" onClick={() => setCashGiven((c) => c + 50000)}>+50k</button>
+                  <button type="button" onClick={() => setCashGiven((c) => c + 100000)}>+100k</button>
+                </div>
+                <div style={{ marginTop: 12, padding: 8, background: '#fafafa', borderRadius: 6 }}>
+                  Tiền thối lại:{' '}
+                  <strong style={{ color: cashGiven >= total ? '#389e0d' : '#cf1322', fontSize: '1.1rem' }}>
+                    {cashGiven >= total ? money(changeDue) : 'Khách đưa thiếu'}
+                  </strong>
+                </div>
+              </div>
+            ) : (
+              <div className="qr-box">
+                <img
+                  src={`https://api.qrserver.com/v1/create-qr-code/?size=160x160&data=OISM_POS_${user.branchId}_${total}`}
+                  alt="Mã QR thanh toán"
+                />
+                <p style={{ margin: '8px 0 0', fontWeight: 600 }}>Quét mã QR để chuyển khoản</p>
+                <small className="muted">Thu ngân xác nhận tiền đã vào tài khoản trước khi hoàn tất</small>
+              </div>
+            )}
+
+            <div className="actions" style={{ marginTop: 20 }}>
+              <button type="button" onClick={() => setPayOpen(false)} disabled={busy}>Đóng (Esc)</button>
+              <button
+                type="button"
+                className="primary"
+                onClick={handleCheckout}
+                disabled={busy || (paymentMethod === 'CASH' && cashGiven < total)}
+              >
+                {busy ? 'Đang xử lý...' : 'Xác nhận & In bill (F9)'}
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* Modal hoa don 80mm */}
+      {receipt && (
+        <div className="modal" role="dialog" aria-modal="true" aria-label="Hóa đơn thanh toán">
+          <div className="card" style={{ width: 380 }}>
+            <div className="receipt-paper">
+              <h3>{user.tenantName}</h3>
+              <div style={{ textAlign: 'center', fontSize: 11 }}>Chi nhánh: {receipt.branchName}</div>
+              <div className="dashed" />
+              <div className="row"><span>Mã đơn:</span><strong>{receipt.orderCode}</strong></div>
+              <div className="row"><span>Ngày giờ:</span><span>{new Date(receipt.completedAt).toLocaleString('vi-VN')}</span></div>
+              <div className="row"><span>Thu ngân:</span><span>{receipt.cashierName}</span></div>
+              <div className="dashed" />
+              <table>
+                <thead>
+                  <tr><th>Hàng hóa</th><th style={{ textAlign: 'right' }}>SL</th><th style={{ textAlign: 'right' }}>T.Tiền</th></tr>
+                </thead>
+                <tbody>
+                  {receipt.items.map((it) => (
+                    <tr key={it.skuId}>
+                      <td>{it.productName} ({it.skuCode})</td>
+                      <td style={{ textAlign: 'right' }}>{it.quantity}</td>
+                      <td style={{ textAlign: 'right' }}>{money(it.lineTotal)}</td>
+                    </tr>
+                  ))}
+                </tbody>
+              </table>
+              <div className="dashed" />
+              <div className="row total-row"><span>TỔNG TIỀN:</span><span>{money(receipt.totalAmount)}</span></div>
+              <div className="row"><span>PT Thanh toán:</span><span>{receipt.paymentMethod === 'CASH' ? 'Tiền mặt' : 'QR chuyển khoản'}</span></div>
+              <div className="row"><span>Tiền khách đưa:</span><span>{money(receipt.cashReceived)}</span></div>
+              <div className="row"><span>Tiền thối lại:</span><span>{money(receipt.changeAmount)}</span></div>
+              <div className="dashed" />
+              <div style={{ textAlign: 'center', marginTop: 8, fontStyle: 'italic', fontSize: 11 }}>
+                Cảm ơn quý khách và hẹn gặp lại!
+              </div>
+            </div>
+
+            <div className="actions no-print" style={{ marginTop: 16, justifyContent: 'center' }}>
+              <button type="button" className="primary" onClick={() => window.print()}>🖨️ In hóa đơn</button>
+              <button type="button" onClick={() => setReceipt(null)}>Đơn mới (Esc)</button>
+            </div>
           </div>
         </div>
       )}
