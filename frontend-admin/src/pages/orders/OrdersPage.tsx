@@ -1,12 +1,37 @@
 import { useCallback, useEffect, useState } from 'react'
 import {
   Button, Card, Col, Form, Input, InputNumber, Modal, Row,
-  Select, Space, Table, Tag, Typography, message,
+  Select, Space, Table, Tag, Typography, message, Popconfirm
 } from 'antd'
-import { CloseOutlined, EyeOutlined, PlusOutlined, PrinterOutlined, SyncOutlined } from '@ant-design/icons'
+import {
+  CloseCircleOutlined, EyeOutlined,
+  PlusOutlined, PrinterOutlined, SyncOutlined, ClockCircleOutlined
+} from '@ant-design/icons'
 import type { ColumnsType } from 'antd/es/table'
 import { branchApi, orderApi, skuApi } from '../../api/services'
 import type { Branch, OrderChannel, OrderStatus, OrderView, SkuSearchItem } from '../../api/types'
+
+// --- COMPONENT ĐẾM NGƯỢC THỜI GIAN GIỮ HÀNG (Dành riêng cho M5) ---
+function ReservedCountdown({ targetDate }: { targetDate: string }) {
+  const [timeLeft, setTimeLeft] = useState<number>(new Date(targetDate).getTime() - Date.now())
+
+  useEffect(() => {
+    const timer = setInterval(() => setTimeLeft(new Date(targetDate).getTime() - Date.now()), 1000)
+    return () => clearInterval(timer)
+  }, [targetDate])
+
+  if (timeLeft <= 0) return <Tag color="error">Đã quá hạn</Tag>
+
+  const minutes = Math.floor((timeLeft / 1000 / 60) % 60)
+  const seconds = Math.floor((timeLeft / 1000) % 60)
+  const isUrgent = timeLeft < 5 * 60 * 1000 // Dưới 5 phút thì báo đỏ
+
+  return (
+    <Tag color={isUrgent ? 'volcano' : 'warning'} icon={<ClockCircleOutlined />}>
+      Còn {minutes}p {seconds}s
+    </Tag>
+  )
+}
 
 const STATUS_COLOR: Record<OrderStatus, string> = {
   DRAFT: 'default',
@@ -18,21 +43,21 @@ const STATUS_COLOR: Record<OrderStatus, string> = {
 
 const STATUS_LABEL: Record<OrderStatus, string> = {
   DRAFT: 'Nháp',
-  RESERVED: 'Đã giữ hàng',
-  CONFIRMED: 'Đã xác nhận (trừ kho)',
+  RESERVED: 'Đang giữ hàng',
+  CONFIRMED: 'Đã xác nhận',
   COMPLETED: 'Hoàn tất',
   CANCELLED: 'Đã hủy',
 }
 
-const CHANNEL_COLOR: Record<OrderChannel, string> = {
-  MANUAL: 'default',
-  POS: 'blue',
-  SHOPEE: 'orange',
-  LAZADA: 'geekblue',
-  TIKTOK: 'purple',
-}
-
 const money = (v: number | null | undefined) => (v != null ? `${v.toLocaleString('vi-VN')} ₫` : '—')
+
+interface CreateOrderFormValues {
+  branchId: string
+  customerName?: string
+  customerPhone?: string
+  shippingAddress?: string
+  items: { skuId: string; quantity: number }[]
+}
 
 export default function OrdersPage() {
   const [orders, setOrders] = useState<OrderView[]>([])
@@ -57,16 +82,14 @@ export default function OrdersPage() {
 
   // Create Modal
   const [createOpen, setCreateOpen] = useState(false)
-  const [createForm] = Form.useForm()
+  const [createForm] = Form.useForm<CreateOrderFormValues>()
   const [availableSkus, setAvailableSkus] = useState<SkuSearchItem[]>([])
 
   const loadBranches = useCallback(async () => {
     try {
       const bs = await branchApi.list()
       setBranches(bs)
-    } catch {
-      // ignore
-    }
+    } catch { /* ignore */ }
   }, [])
 
   const loadOrders = useCallback(async () => {
@@ -88,14 +111,10 @@ export default function OrdersPage() {
     }
   }, [statusFilter, channelFilter, branchFilter, page])
 
-  useEffect(() => {
-    loadBranches()
-  }, [loadBranches])
+  useEffect(() => { loadBranches() }, [loadBranches])
+  useEffect(() => { loadOrders() }, [loadOrders])
 
-  useEffect(() => {
-    loadOrders()
-  }, [loadOrders])
-
+  // Hàm xử lý Action
   const handleAction = async (action: 'reserve' | 'confirm' | 'complete', orderId: string) => {
     try {
       let updated: OrderView
@@ -104,14 +123,12 @@ export default function OrdersPage() {
         message.success('Đã giữ hàng thành công')
       } else if (action === 'confirm') {
         updated = await orderApi.confirm(orderId)
-        message.success('Đã xác nhận đơn hàng (ghi sổ xuất kho & chụp giá vốn)')
+        message.success('Đã xác nhận đơn (Ghi sổ xuất kho & Chụp giá vốn)')
       } else {
         updated = await orderApi.complete(orderId)
         message.success('Đã hoàn tất đơn hàng')
       }
-      if (selectedOrder && selectedOrder.id === orderId) {
-        setSelectedOrder(updated)
-      }
+      if (selectedOrder && selectedOrder.id === orderId) setSelectedOrder(updated)
       loadOrders()
     } catch (err: any) {
       message.error(err.response?.data?.message || 'Thao tác thất bại')
@@ -129,79 +146,83 @@ export default function OrdersPage() {
       setCancelModalOpen(false)
       setCancelReason('')
       setOrderToCancel(null)
-      if (selectedOrder && selectedOrder.id === updated.id) {
-        setSelectedOrder(updated)
-      }
+      if (selectedOrder && selectedOrder.id === updated.id) setSelectedOrder(updated)
       loadOrders()
     } catch (err: any) {
       message.error(err.response?.data?.message || 'Hủy đơn hàng thất bại')
     }
   }
 
+  // Hàm in phiếu tối ưu (Ẩn iframe thay vì popup để không bị trình duyệt chặn)
   const handlePrintSlip = (order: OrderView) => {
-    const printWindow = window.open('', '_blank', 'width=700,height=800')
-    if (!printWindow) return
-    const itemsHtml = order.items
-      .map(
-        (i, idx) => `
+    const printWindow = document.createElement('iframe')
+    printWindow.style.position = 'fixed'
+    printWindow.style.right = '0'
+    printWindow.style.bottom = '0'
+    printWindow.style.width = '0'
+    printWindow.style.height = '0'
+    printWindow.style.border = '0'
+    document.body.appendChild(printWindow)
+
+    const doc = printWindow.contentWindow?.document
+    if (!doc) return
+
+    const itemsHtml = order.items.map((i, idx) => `
       <tr>
-        <td style="padding: 8px; border-bottom: 1px solid #ddd;">${idx + 1}</td>
+        <td style="padding: 8px; border-bottom: 1px solid #ddd; text-align: center;">${idx + 1}</td>
         <td style="padding: 8px; border-bottom: 1px solid #ddd;"><strong>${i.skuCode}</strong></td>
         <td style="padding: 8px; border-bottom: 1px solid #ddd; text-align: center;">${i.quantity}</td>
         <td style="padding: 8px; border-bottom: 1px solid #ddd; text-align: right;">${i.unitPrice.toLocaleString('vi-VN')} ₫</td>
         <td style="padding: 8px; border-bottom: 1px solid #ddd; text-align: right;">${i.lineTotal.toLocaleString('vi-VN')} ₫</td>
       </tr>
-    `,
-      )
-      .join('')
+    `).join('')
 
-    printWindow.document.write(`
+    doc.write(`
       <!DOCTYPE html>
       <html>
         <head>
-          <title>Phiếu đóng gói - ${order.code}</title>
+          <title>Phiếu giao hàng - ${order.code}</title>
           <style>
-            body { font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif; padding: 24px; color: #333; }
-            h2 { margin-bottom: 4px; }
-            .meta { margin-bottom: 16px; font-size: 14px; }
-            table { width: 100%; border-collapse: collapse; margin-top: 16px; }
-            th { background: #f5f5f5; padding: 8px; text-align: left; border-bottom: 2px solid #ccc; }
+            body { font-family: 'Segoe UI', Tahoma, sans-serif; padding: 20px; color: #333; }
+            .header { text-align: center; margin-bottom: 20px; }
+            .meta { margin-bottom: 16px; font-size: 14px; line-height: 1.6; }
+            table { width: 100%; border-collapse: collapse; margin-top: 16px; font-size: 14px; }
+            th { background: #f5f5f5; padding: 10px; text-align: left; border-bottom: 2px solid #333; }
             .total { text-align: right; margin-top: 20px; font-size: 16px; font-weight: bold; }
             .footer { margin-top: 40px; display: flex; justify-content: space-between; text-align: center; }
-            @media print {
-              button { display: none; }
-            }
           </style>
         </head>
         <body>
-          <h2>PHIẾU ĐÓNG GÓI & GIAO HÀNG</h2>
+          <div class="header">
+            <h2>PHIẾU ĐÓNG GÓI & GIAO HÀNG</h2>
+            <p>Mã đơn: <strong>${order.code}</strong></p>
+          </div>
           <div class="meta">
-            <p><strong>Mã đơn hàng:</strong> ${order.code} | <strong>Kênh:</strong> ${order.channel}</p>
-            <p><strong>Ngày tạo:</strong> ${new Date(order.createdAt).toLocaleString('vi-VN')}</p>
+            <p><strong>Kênh:</strong> ${order.channel} | <strong>Ngày tạo:</strong> ${new Date(order.createdAt).toLocaleString('vi-VN')}</p>
             <p><strong>Khách hàng:</strong> ${order.customerName || 'Khách lẻ'} - SĐT: ${order.customerPhone || '—'}</p>
             <p><strong>Địa chỉ giao:</strong> ${order.shippingAddress || 'Nhận tại cửa hàng'}</p>
           </div>
           <table>
             <thead>
-              <tr><th>STT</th><th>Mã SKU</th><th style="text-align: center;">Số lượng</th><th style="text-align: right;">Đơn giá</th><th style="text-align: right;">Thành tiền</th></tr>
+              <tr><th>STT</th><th>Mã SKU</th><th style="text-align: center;">SL</th><th style="text-align: right;">Đơn giá</th><th style="text-align: right;">Thành tiền</th></tr>
             </thead>
             <tbody>${itemsHtml}</tbody>
           </table>
-          <div class="total">
-            Tổng tiền thanh toán: ${order.totalAmount.toLocaleString('vi-VN')} ₫
-          </div>
+          <div class="total">Tổng thanh toán: ${order.totalAmount.toLocaleString('vi-VN')} ₫</div>
           <div class="footer">
             <div><p>Người lập phiếu</p><small>(Ký, họ tên)</small></div>
             <div><p>Người giao hàng</p><small>(Ký, họ tên)</small></div>
             <div><p>Người nhận hàng</p><small>(Ký, họ tên)</small></div>
           </div>
-          <script>
-            window.onload = function() { window.print(); }
-          </script>
         </body>
       </html>
     `)
-    printWindow.document.close()
+    doc.close()
+    printWindow.contentWindow?.focus()
+    setTimeout(() => {
+      printWindow.contentWindow?.print()
+      document.body.removeChild(printWindow)
+    }, 500)
   }
 
   const handleSearchSku = async (keyword: string) => {
@@ -209,17 +230,12 @@ export default function OrdersPage() {
     try {
       const data = await skuApi.search({ keyword, status: 'ACTIVE', size: 10 })
       setAvailableSkus(data.content)
-    } catch {
-      // ignore
-    }
+    } catch { /* ignore */ }
   }
 
-  const handleCreateOrder = async (values: any) => {
+  const handleCreateOrder = async (values: CreateOrderFormValues) => {
     try {
-      const lines = values.items.map((i: any) => ({
-        skuId: i.skuId,
-        quantity: i.quantity,
-      }))
+      const lines = values.items.map((i) => ({ skuId: i.skuId, quantity: i.quantity }))
       await orderApi.createAndReserve({
         branchId: values.branchId,
         channel: 'MANUAL',
@@ -228,7 +244,7 @@ export default function OrdersPage() {
         shippingAddress: values.shippingAddress,
         lines,
       })
-      message.success('Đã tạo và giữ hàng đơn hàng thành công')
+      message.success('Đã tạo và giữ hàng thành công')
       setCreateOpen(false)
       createForm.resetFields()
       loadOrders()
@@ -239,24 +255,25 @@ export default function OrdersPage() {
 
   const columns: ColumnsType<OrderView> = [
     {
-      title: 'Mã đơn',
-      dataIndex: 'code',
-      key: 'code',
+      title: 'Mã đơn', dataIndex: 'code', key: 'code',
       render: (code, record) => (
-        <a onClick={() => { setSelectedOrder(record); setDetailOpen(true) }}>
-          <strong>{code}</strong>
-        </a>
+        <a onClick={() => { setSelectedOrder(record); setDetailOpen(true) }}><strong>{code}</strong></a>
+      ),
+    },
+    { title: 'Kênh', dataIndex: 'channel', key: 'channel', render: (ch: OrderChannel) => <Tag>{ch}</Tag> },
+    {
+      title: 'Trạng thái', dataIndex: 'status', key: 'status',
+      render: (st: OrderStatus, record) => (
+        <Space direction="vertical" size={0}>
+          <Tag color={STATUS_COLOR[st]}>{STATUS_LABEL[st]}</Tag>
+          {st === 'RESERVED' && record.reservedUntil && (
+            <ReservedCountdown targetDate={record.reservedUntil} />
+          )}
+        </Space>
       ),
     },
     {
-      title: 'Kênh',
-      dataIndex: 'channel',
-      key: 'channel',
-      render: (ch: OrderChannel) => <Tag color={CHANNEL_COLOR[ch]}>{ch}</Tag>,
-    },
-    {
-      title: 'Khách hàng',
-      key: 'customer',
+      title: 'Khách hàng', key: 'customer',
       render: (_, r) => (
         <div>
           <div>{r.customerName || '—'}</div>
@@ -264,52 +281,33 @@ export default function OrdersPage() {
         </div>
       ),
     },
+    { title: 'Tổng tiền', dataIndex: 'totalAmount', key: 'totalAmount', align: 'right', render: (v) => <strong>{money(v)}</strong> },
     {
-      title: 'Trạng thái',
-      dataIndex: 'status',
-      key: 'status',
-      render: (st: OrderStatus) => <Tag color={STATUS_COLOR[st]}>{STATUS_LABEL[st]}</Tag>,
-    },
-    {
-      title: 'Tổng tiền',
-      dataIndex: 'totalAmount',
-      key: 'totalAmount',
-      align: 'right',
-      render: (v) => <strong>{money(v)}</strong>,
-    },
-    {
-      title: 'Thời gian tạo',
-      dataIndex: 'createdAt',
-      key: 'createdAt',
-      render: (t) => new Date(t).toLocaleString('vi-VN'),
-    },
-    {
-      title: 'Thao tác',
-      key: 'actions',
+      title: 'Thao tác', key: 'actions', width: 220,
       render: (_, record) => (
-        <Space size="small">
-          <Button size="small" icon={<EyeOutlined />} onClick={() => { setSelectedOrder(record); setDetailOpen(true) }} />
-          <Button size="small" icon={<PrinterOutlined />} title="In phiếu đóng gói" onClick={() => handlePrintSlip(record)} />
+        <Space size="small" wrap>
           {record.status === 'DRAFT' && (
-            <Button size="small" type="primary" onClick={() => handleAction('reserve', record.id)}>
-              Giữ hàng
-            </Button>
+            <Button size="small" type="primary" onClick={() => handleAction('reserve', record.id)}>Giữ hàng</Button>
           )}
           {record.status === 'RESERVED' && (
-            <Button size="small" type="primary" onClick={() => handleAction('confirm', record.id)}>
-              Xác nhận
-            </Button>
+            <Button size="small" type="primary" onClick={() => handleAction('confirm', record.id)}>Duyệt (Trừ kho)</Button>
           )}
           {record.status === 'CONFIRMED' && (
-            <Button size="small" type="primary" style={{ background: '#52c41a', borderColor: '#52c41a' }} onClick={() => handleAction('complete', record.id)}>
-              Hoàn tất
-            </Button>
+            <Button size="small" style={{ background: '#52c41a', color: '#fff' }} onClick={() => handleAction('complete', record.id)}>Hoàn tất</Button>
           )}
           {['DRAFT', 'RESERVED', 'CONFIRMED'].includes(record.status) && (
-            <Button size="small" danger onClick={() => { setOrderToCancel(record); setCancelModalOpen(true) }}>
-              Hủy
-            </Button>
+            <Popconfirm
+              title="Hủy đơn hàng?"
+              description="Hành động này không thể hoàn tác."
+              onConfirm={() => { setOrderToCancel(record); setCancelModalOpen(true) }}
+              okText="Đồng ý"
+              cancelText="Đóng"
+            >
+              <Button size="small" danger>Hủy</Button>
+            </Popconfirm>
           )}
+          <Button size="small" icon={<EyeOutlined />} onClick={() => { setSelectedOrder(record); setDetailOpen(true) }} />
+          <Button size="small" icon={<PrinterOutlined />} onClick={() => handlePrintSlip(record)} />
         </Space>
       ),
     },
@@ -318,9 +316,7 @@ export default function OrdersPage() {
   return (
     <div>
       <Row justify="space-between" align="middle" style={{ marginBottom: 16 }}>
-        <Col>
-          <Typography.Title level={3} style={{ margin: 0 }}>Quản lý Đơn hàng</Typography.Title>
-        </Col>
+        <Col><Typography.Title level={3} style={{ margin: 0 }}>Quản lý Đơn hàng</Typography.Title></Col>
         <Col>
           <Space>
             <Button icon={<SyncOutlined />} onClick={loadOrders}>Làm mới</Button>
@@ -331,152 +327,61 @@ export default function OrdersPage() {
 
       <Card style={{ marginBottom: 16 }}>
         <Space wrap>
-          <Select
-            placeholder="Lọc theo trạng thái"
-            allowClear
-            style={{ width: 200 }}
-            value={statusFilter}
-            onChange={setStatusFilter}
-            options={[
-              { value: 'DRAFT', label: 'Nháp' },
-              { value: 'RESERVED', label: 'Đã giữ hàng' },
-              { value: 'CONFIRMED', label: 'Đã xác nhận' },
-              { value: 'COMPLETED', label: 'Hoàn tất' },
-              { value: 'CANCELLED', label: 'Đã hủy' },
-            ]}
-          />
-          <Select
-            placeholder="Lọc theo kênh"
-            allowClear
-            style={{ width: 160 }}
-            value={channelFilter}
-            onChange={setChannelFilter}
-            options={[
-              { value: 'MANUAL', label: 'Thủ công' },
-              { value: 'POS', label: 'Tại quầy (POS)' },
-              { value: 'SHOPEE', label: 'Shopee' },
-              { value: 'LAZADA', label: 'Lazada' },
-              { value: 'TIKTOK', label: 'TikTok Shop' },
-            ]}
-          />
-          <Select
-            placeholder="Lọc theo chi nhánh"
-            allowClear
-            style={{ width: 200 }}
-            value={branchFilter}
-            onChange={setBranchFilter}
-            options={branches.map((b) => ({ value: b.id, label: b.name }))}
-          />
+          <Select placeholder="Trạng thái" allowClear style={{ width: 200 }} value={statusFilter} onChange={setStatusFilter}
+            options={Object.entries(STATUS_LABEL).map(([value, label]) => ({ value, label }))} />
+          <Select placeholder="Kênh" allowClear style={{ width: 160 }} value={channelFilter} onChange={setChannelFilter}
+            options={['MANUAL', 'POS', 'SHOPEE', 'LAZADA', 'TIKTOK'].map((v) => ({ value: v, label: v }))} />
+          <Select placeholder="Chi nhánh" allowClear style={{ width: 200 }} value={branchFilter} onChange={setBranchFilter}
+            options={branches.map((b) => ({ value: b.id, label: b.name }))} />
         </Space>
       </Card>
 
       <Card>
-        <Table
-          rowKey="id"
-          columns={columns}
-          dataSource={orders}
-          loading={loading}
-          pagination={{
-            current: page,
-            pageSize: 10,
-            total,
-            onChange: setPage,
-            showTotal: (t) => `Tổng cộng ${t} đơn hàng`,
-          }}
-        />
+        <Table rowKey="id" columns={columns} dataSource={orders} loading={loading}
+          pagination={{ current: page, pageSize: 10, total, onChange: setPage, showTotal: (t) => `Tổng ${t} đơn` }} />
       </Card>
 
-      {/* Chi tiết đơn hàng modal */}
-      <Modal
-        title={`Chi tiết đơn hàng: ${selectedOrder?.code}`}
-        open={detailOpen}
-        onCancel={() => setDetailOpen(false)}
-        width={800}
+      {/* Modal Chi tiết */}
+      <Modal title={`Chi tiết đơn hàng: ${selectedOrder?.code}`} open={detailOpen} onCancel={() => setDetailOpen(false)} width={800}
         footer={[
-          <Button key="print" icon={<PrinterOutlined />} onClick={() => selectedOrder && handlePrintSlip(selectedOrder)}>
-            In phiếu đóng gói
-          </Button>,
-          selectedOrder?.status === 'DRAFT' && (
-            <Button key="reserve" type="primary" onClick={() => handleAction('reserve', selectedOrder.id)}>
-              Giữ hàng
-            </Button>
-          ),
-          selectedOrder?.status === 'RESERVED' && (
-            <Button key="confirm" type="primary" onClick={() => handleAction('confirm', selectedOrder.id)}>
-              Xác nhận (Trừ kho)
-            </Button>
-          ),
-          selectedOrder?.status === 'CONFIRMED' && (
-            <Button key="complete" type="primary" style={{ background: '#52c41a' }} onClick={() => handleAction('complete', selectedOrder.id)}>
-              Hoàn tất đơn
-            </Button>
-          ),
-          selectedOrder && ['DRAFT', 'RESERVED', 'CONFIRMED'].includes(selectedOrder.status) && (
-            <Button key="cancel" danger onClick={() => { setOrderToCancel(selectedOrder); setCancelModalOpen(true) }}>
-              Hủy đơn
-            </Button>
-          ),
-          <Button key="close" onClick={() => setDetailOpen(false)}>Đóng</Button>,
-        ]}
-      >
+          <Button key="print" icon={<PrinterOutlined />} onClick={() => selectedOrder && handlePrintSlip(selectedOrder)}>In phiếu</Button>,
+          <Button key="close" onClick={() => setDetailOpen(false)}>Đóng</Button>
+        ]}>
         {selectedOrder && (
           <div>
             <Row gutter={[16, 16]}>
               <Col span={12}>
                 <p><strong>Trạng thái:</strong> <Tag color={STATUS_COLOR[selectedOrder.status]}>{STATUS_LABEL[selectedOrder.status]}</Tag></p>
-                <p><strong>Kênh bán:</strong> <Tag color={CHANNEL_COLOR[selectedOrder.channel]}>{selectedOrder.channel}</Tag></p>
-                {selectedOrder.externalOrderId && (
-                  <p><strong>Mã đơn sàn:</strong> {selectedOrder.externalOrderId}</p>
-                )}
-                {selectedOrder.reservedUntil && (
-                  <p><strong>Hạn giữ hàng:</strong> {new Date(selectedOrder.reservedUntil).toLocaleString('vi-VN')}</p>
+                <p><strong>Kênh bán:</strong> <Tag>{selectedOrder.channel}</Tag></p>
+                {selectedOrder.reservedUntil && selectedOrder.status === 'RESERVED' && (
+                  <p><strong>Hạn giữ hàng:</strong> <ReservedCountdown targetDate={selectedOrder.reservedUntil} /></p>
                 )}
               </Col>
               <Col span={12}>
                 <p><strong>Khách hàng:</strong> {selectedOrder.customerName || 'Khách lẻ'}</p>
                 <p><strong>SĐT:</strong> {selectedOrder.customerPhone || '—'}</p>
-                <p><strong>Địa chỉ giao:</strong> {selectedOrder.shippingAddress || 'Tại quầy'}</p>
-                <p><strong>Ngày tạo:</strong> {new Date(selectedOrder.createdAt).toLocaleString('vi-VN')}</p>
+                <p><strong>Địa chỉ:</strong> {selectedOrder.shippingAddress || 'Tại quầy'}</p>
               </Col>
             </Row>
 
-            <Typography.Title level={5} style={{ marginTop: 16 }}>Dòng sản phẩm</Typography.Title>
-            <Table
-              rowKey="skuId"
-              pagination={false}
-              dataSource={selectedOrder.items}
+            <Typography.Title level={5} style={{ marginTop: 16 }}>Sản phẩm</Typography.Title>
+            <Table rowKey="skuId" pagination={false} dataSource={selectedOrder.items}
               columns={[
-                { title: 'SKU', dataIndex: 'skuCode', key: 'skuCode' },
-                { title: 'Số lượng', dataIndex: 'quantity', key: 'quantity', align: 'center' },
-                { title: 'Đơn giá bán', dataIndex: 'unitPrice', key: 'unitPrice', align: 'right', render: (v) => money(v) },
-                {
-                  title: 'Giá vốn chụp',
-                  dataIndex: 'costPrice',
-                  key: 'costPrice',
-                  align: 'right',
-                  render: (v) => (v != null ? <span style={{ color: '#0958d9' }}>{money(v)}</span> : <span style={{ color: '#888' }}>Chưa chụp</span>),
-                },
-                { title: 'Thành tiền', dataIndex: 'lineTotal', key: 'lineTotal', align: 'right', render: (v) => <strong>{money(v)}</strong> },
-              ]}
-              summary={() => (
-                <Table.Summary.Row>
-                  <Table.Summary.Cell index={0} colSpan={4}><strong>Tổng tiền đơn hàng:</strong></Table.Summary.Cell>
-                  <Table.Summary.Cell index={1} align="right">
-                    <strong style={{ color: '#cf1322', fontSize: 16 }}>{money(selectedOrder.totalAmount)}</strong>
-                  </Table.Summary.Cell>
-                </Table.Summary.Row>
-              )}
-            />
+                { title: 'SKU', dataIndex: 'skuCode' },
+                { title: 'SL', dataIndex: 'quantity', align: 'center' },
+                { title: 'Đơn giá', dataIndex: 'unitPrice', align: 'right', render: money },
+                { title: 'Giá vốn chụp', dataIndex: 'costPrice', align: 'right', render: (v) => v ? <span style={{ color: '#0958d9' }}>{money(v)}</span> : <span style={{ color: '#888' }}>Chưa có</span> },
+                { title: 'Thành tiền', dataIndex: 'lineTotal', align: 'right', render: (v) => <strong>{money(v)}</strong> },
+              ]} />
+            <div style={{ textAlign: 'right', marginTop: 16, fontSize: 18 }}>
+              Tổng cộng: <strong style={{ color: '#cf1322' }}>{money(selectedOrder.totalAmount)}</strong>
+            </div>
 
-            <Typography.Title level={5} style={{ marginTop: 16 }}>Lịch sử trạng thái</Typography.Title>
-            <Table
-              rowKey="createdAt"
-              pagination={false}
-              dataSource={selectedOrder.history}
+            <Typography.Title level={5} style={{ marginTop: 24 }}>Lịch sử trạng thái (State Machine)</Typography.Title>
+            <Table rowKey="createdAt" pagination={false} dataSource={selectedOrder.history}
               columns={[
                 {
-                  title: 'Chuyển trạng thái',
-                  key: 'transition',
+                  title: 'Chuyển trạng thái', key: 'transition',
                   render: (_, h) => (
                     <span>
                       {h.fromStatus ? <Tag color={STATUS_COLOR[h.fromStatus]}>{STATUS_LABEL[h.fromStatus]}</Tag> : 'Khởi tạo'}
@@ -485,59 +390,32 @@ export default function OrdersPage() {
                     </span>
                   ),
                 },
-                { title: 'Lý do / Ghi chú', dataIndex: 'reason', key: 'reason' },
-                { title: 'Thời gian', dataIndex: 'createdAt', key: 'createdAt', render: (t) => new Date(t).toLocaleString('vi-VN') },
-              ]}
-            />
+                { title: 'Người làm / Lý do', dataIndex: 'reason', render: (r) => r || '—' },
+                { title: 'Thời gian', dataIndex: 'createdAt', render: (t) => new Date(t).toLocaleString('vi-VN') },
+              ]} />
           </div>
         )}
       </Modal>
 
-      {/* Modal Hủy đơn */}
-      <Modal
-        title={`Hủy đơn hàng: ${orderToCancel?.code}`}
-        open={cancelModalOpen}
-        onOk={handleCancel}
+      {/* Modal Hủy */}
+      <Modal title={`Hủy đơn hàng: ${orderToCancel?.code}`} open={cancelModalOpen} onOk={handleCancel}
         onCancel={() => { setCancelModalOpen(false); setOrderToCancel(null); setCancelReason('') }}
-        okText="Xác nhận hủy"
-        okButtonProps={{ danger: true }}
-      >
-        <p>Vui lòng nhập lý do hủy đơn (hệ thống sẽ tự động nhả tồn giữ hàng hoặc hoàn lại tồn kho nếu đơn đã xác nhận):</p>
-        <Input.TextArea
-          rows={3}
-          placeholder="Ví dụ: Khách đổi ý, hết hàng, sai địa chỉ..."
-          value={cancelReason}
-          onChange={(e) => setCancelReason(e.target.value)}
-        />
+        okText="Xác nhận hủy" okButtonProps={{ danger: true }}>
+        <p>Vui lòng nhập lý do hủy. Hệ thống sẽ tự động <strong>nhả tồn kho</strong> (nếu đang giữ) hoặc <strong>hoàn kho</strong> (nếu đã trừ kho).</p>
+        <Input.TextArea rows={3} placeholder="Ví dụ: Khách đổi ý..." value={cancelReason} onChange={(e) => setCancelReason(e.target.value)} />
       </Modal>
 
       {/* Modal Tạo đơn */}
-      <Modal
-        title="Tạo đơn hàng thủ công"
-        open={createOpen}
-        onCancel={() => { setCreateOpen(false); createForm.resetFields() }}
-        onOk={() => createForm.submit()}
-        width={700}
-      >
+      <Modal title="Tạo đơn hàng thủ công" open={createOpen} onCancel={() => { setCreateOpen(false); createForm.resetFields() }} onOk={() => createForm.submit()} width={700}>
         <Form form={createForm} layout="vertical" onFinish={handleCreateOrder}>
           <Form.Item name="branchId" label="Chi nhánh xuất bán" rules={[{ required: true, message: 'Chọn chi nhánh' }]}>
             <Select options={branches.map((b) => ({ value: b.id, label: b.name }))} placeholder="Chọn chi nhánh" />
           </Form.Item>
           <Row gutter={16}>
-            <Col span={12}>
-              <Form.Item name="customerName" label="Tên khách hàng">
-                <Input placeholder="Nguyễn Văn A" />
-              </Form.Item>
-            </Col>
-            <Col span={12}>
-              <Form.Item name="customerPhone" label="Số điện thoại">
-                <Input placeholder="0901234567" />
-              </Form.Item>
-            </Col>
+            <Col span={12}><Form.Item name="customerName" label="Tên khách hàng"><Input /></Form.Item></Col>
+            <Col span={12}><Form.Item name="customerPhone" label="Số điện thoại"><Input /></Form.Item></Col>
           </Row>
-          <Form.Item name="shippingAddress" label="Địa chỉ giao hàng">
-            <Input placeholder="Địa chỉ chi tiết" />
-          </Form.Item>
+          <Form.Item name="shippingAddress" label="Địa chỉ"><Input /></Form.Item>
 
           <Typography.Text strong>Danh sách sản phẩm</Typography.Text>
           <Form.List name="items" initialValue={[{ skuId: undefined, quantity: 1 }]}>
@@ -545,38 +423,17 @@ export default function OrdersPage() {
               <div style={{ marginTop: 8 }}>
                 {fields.map(({ key, name, ...restField }) => (
                   <Space key={key} style={{ display: 'flex', marginBottom: 8 }} align="baseline">
-                    <Form.Item
-                      {...restField}
-                      name={[name, 'skuId']}
-                      rules={[{ required: true, message: 'Chọn sản phẩm SKU' }]}
-                      style={{ width: 400 }}
-                    >
-                      <Select
-                        showSearch
-                        placeholder="Gõ mã hoặc tên SKU để tìm"
-                        filterOption={false}
-                        onSearch={handleSearchSku}
-                        options={availableSkus.map((s) => ({
-                          value: s.id,
-                          label: `${s.code} - ${s.productName} (Còn ${s.available}) - ${s.retailPrice.toLocaleString('vi-VN')} ₫`,
-                        }))}
-                      />
+                    <Form.Item {...restField} name={[name, 'skuId']} rules={[{ required: true, message: 'Chọn SKU' }]} style={{ width: 400 }}>
+                      <Select showSearch placeholder="Tìm SKU" filterOption={false} onSearch={handleSearchSku}
+                        options={availableSkus.map((s) => ({ value: s.id, label: `${s.code} - ${s.productName} (Còn ${s.available})` }))} />
                     </Form.Item>
-                    <Form.Item
-                      {...restField}
-                      name={[name, 'quantity']}
-                      rules={[{ required: true, message: 'Số lượng' }]}
-                    >
+                    <Form.Item {...restField} name={[name, 'quantity']} rules={[{ required: true }]}>
                       <InputNumber min={1} placeholder="SL" />
                     </Form.Item>
-                    {fields.length > 1 && (
-                      <CloseOutlined onClick={() => remove(name)} style={{ color: 'red' }} />
-                    )}
+                    {fields.length > 1 && <CloseCircleOutlined onClick={() => remove(name)} style={{ color: 'red' }} />}
                   </Space>
                 ))}
-                <Button type="dashed" onClick={() => add()} block icon={<PlusOutlined />}>
-                  Thêm dòng sản phẩm
-                </Button>
+                <Button type="dashed" onClick={() => add()} block icon={<PlusOutlined />}>Thêm SKU</Button>
               </div>
             )}
           </Form.List>
