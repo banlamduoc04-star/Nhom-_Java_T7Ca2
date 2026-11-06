@@ -1,0 +1,37 @@
+# Superpowers plugin (specs, plans, logs, artifacts)
+.superpowers/
+superpowers/
+**/superpowers/
+*superpower*
+
+# IDE & System files
+.idea/
+.vscode/
+*.DS_Store
+Thumbs.db
+*.log
+
+# Build files & Dependencies (Java & Node.js)
+target/
+**/target/
+node_modules/
+**/node_modules/
+.next/
+**/.next/
+dist/
+build/
+out/
+
+# Environment files
+.env*.local
+.env
+
+
+# Tai lieu noi bo (khong day len GitHub)
+docs/internal/
+
+
+# Backend / frontend build
+backend/target/
+frontend-*/node_modules/
+frontend-*/dist/

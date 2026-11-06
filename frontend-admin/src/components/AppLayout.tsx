@@ -1,0 +1,196 @@
+import { useEffect, useState } from 'react'
+import { Badge, Button, Layout, Menu, Result, Space, Tag, Typography, notification } from 'antd'
+import {
+  ApartmentOutlined, AppstoreOutlined, AuditOutlined, BarChartOutlined, BellOutlined,
+  ContainerOutlined, DashboardOutlined, DatabaseOutlined, LineChartOutlined, LogoutOutlined,
+  SettingOutlined, ShopOutlined, ShoppingCartOutlined, SwapOutlined, TagsOutlined, TeamOutlined,
+  ThunderboltOutlined, UsergroupAddOutlined,
+} from '@ant-design/icons'
+import { Outlet, useLocation, useNavigate } from 'react-router-dom'
+import { useAuth } from '../auth/AuthContext'
+import { alertApi } from '../api/services'
+import type { Role } from '../api/types'
+
+const { Header, Sider, Content } = Layout
+
+interface Entry {
+  key: string
+  label: string
+  icon: React.ReactNode
+  roles: Role[]
+}
+
+/** Menu theo vai tro (FR-AUTH-03, JC-32): moi muc chi hien voi vai tro duoc phep. */
+const ENTRIES: Entry[] = [
+  { key: '/dashboard', label: 'Tổng quan', icon: <DashboardOutlined />, roles: ['OWNER', 'STAFF'] },
+  { key: '/orders', label: 'Đơn hàng', icon: <ShoppingCartOutlined />, roles: ['OWNER', 'STAFF'] },
+  { key: '/products', label: 'Sản phẩm', icon: <AppstoreOutlined />, roles: ['OWNER', 'STAFF'] },
+  { key: '/categories', label: 'Danh mục', icon: <ApartmentOutlined />, roles: ['OWNER'] },
+  { key: '/brands', label: 'Thương hiệu', icon: <TagsOutlined />, roles: ['OWNER'] },
+  { key: '/suppliers', label: 'Nhà cung cấp', icon: <TeamOutlined />, roles: ['OWNER', 'STAFF'] },
+  { key: '/receipts', label: 'Phiếu nhập kho', icon: <ContainerOutlined />, roles: ['OWNER', 'STAFF'] },
+  { key: '/transfers', label: 'Chuyển kho', icon: <SwapOutlined />, roles: ['OWNER', 'STAFF'] },
+  { key: '/stocktakes', label: 'Kiểm kê kho', icon: <AuditOutlined />, roles: ['OWNER', 'STAFF'] },
+  { key: '/stock', label: 'Tồn kho & sổ cái', icon: <DatabaseOutlined />, roles: ['OWNER', 'STAFF'] },
+  { key: '/stock-reports', label: 'Báo cáo tồn kho', icon: <BarChartOutlined />, roles: ['OWNER'] },
+  { key: '/profit-report', label: 'Báo cáo lợi nhuận', icon: <LineChartOutlined />, roles: ['OWNER'] },
+  { key: '/branches', label: 'Chi nhánh / Kho', icon: <ShopOutlined />, roles: ['OWNER'] },
+  { key: '/users', label: 'Nhân viên', icon: <UsergroupAddOutlined />, roles: ['OWNER'] },
+  { key: '/settings', label: 'Cài đặt hệ thống', icon: <SettingOutlined />, roles: ['OWNER'] },
+  { key: '/simulator', label: 'Giả lập & Webhook', icon: <ThunderboltOutlined />, roles: ['OWNER'] },
+]
+
+const ROLE_LABEL: Record<Role, string> = { OWNER: 'Chủ cửa hàng', STAFF: 'Nhân viên', CASHIER: 'Thu ngân' }
+
+function playNotificationSound() {
+  try {
+    const AudioCtx = window.AudioContext || (window as unknown as { webkitAudioContext: typeof AudioContext }).webkitAudioContext
+    const ctx = new AudioCtx()
+    const osc = ctx.createOscillator()
+    const gain = ctx.createGain()
+    osc.connect(gain)
+    gain.connect(ctx.destination)
+    osc.type = 'sine'
+    osc.frequency.setValueAtTime(587.33, ctx.currentTime) // D5
+    osc.frequency.setValueAtTime(880, ctx.currentTime + 0.1) // A5
+    gain.gain.setValueAtTime(0.25, ctx.currentTime)
+    gain.gain.exponentialRampToValueAtTime(0.001, ctx.currentTime + 0.45)
+    osc.start()
+    osc.stop(ctx.currentTime + 0.45)
+  } catch {
+    // Ignore audio context error if browser blocks autoplay
+  }
+}
+
+export default function AppLayout() {
+  const { user, logout, hasRole } = useAuth()
+  const navigate = useNavigate()
+  const { pathname } = useLocation()
+  const [openAlertsCount, setOpenAlertsCount] = useState(0)
+
+  // WebSocket realtime notification listener (JC-28, JC-32)
+  useEffect(() => {
+    if (!user) return
+
+    // Lay so luong canh bao ton kho
+    alertApi.count().then((r) => setOpenAlertsCount(r.openAlerts)).catch(() => undefined)
+
+    // Ket noi WebSocket STOMP toi endpoint /ws
+    let ws: WebSocket | null = null
+    try {
+      const protocol = window.location.protocol === 'https:' ? 'wss:' : 'ws:'
+      const wsUrl = `${protocol}//${window.location.host}/ws`
+      ws = new WebSocket(wsUrl)
+
+      ws.onopen = () => {
+        // Send STOMP CONNECT frame
+        const connectFrame = `CONNECT\naccept-version:1.2,1.1,1.0\nheart-beat:10000,10000\nAuthorization:Bearer ${localStorage.getItem('access_token') || ''}\n\n\0`
+        ws?.send(connectFrame)
+      }
+
+      ws.onmessage = (event) => {
+        const msg = event.data as string
+        if (msg.startsWith('CONNECTED')) {
+          // Subscribe den topic don hang moi cua tenant
+          const subOrders = `SUBSCRIBE\nid:sub-orders\ndestination:/topic/tenants/${user.tenantId}/orders/new\n\n\0`
+          const subAlerts = `SUBSCRIBE\nid:sub-alerts\ndestination:/topic/tenants/${user.tenantId}/alerts\n\n\0`
+          ws?.send(subOrders)
+          ws?.send(subAlerts)
+        } else if (msg.startsWith('MESSAGE')) {
+          const bodyIndex = msg.indexOf('\n\n')
+          if (bodyIndex !== -1) {
+            const rawBody = msg.substring(bodyIndex + 2).replace(/\0$/, '').trim()
+            try {
+              const data = JSON.parse(rawBody)
+              playNotificationSound()
+              if (data.orderCode) {
+                notification.info({
+                  message: 'Đơn hàng mới vừa tạo!',
+                  description: `Mã đơn: ${data.orderCode} - Kênh: ${data.channel || 'POS'} - Tiền: ${Number(data.totalAmount).toLocaleString('vi-VN')} ₫`,
+                  placement: 'topRight',
+                  duration: 6,
+                })
+              } else if (data.skuCode) {
+                notification.warning({
+                  message: 'Cảnh báo tồn kho!',
+                  description: `SKU ${data.skuCode} tại chi nhánh đã xuống dưới ngưỡng đặt lại!`,
+                  placement: 'topRight',
+                  duration: 6,
+                })
+                alertApi.count().then((r) => setOpenAlertsCount(r.openAlerts)).catch(() => undefined)
+              }
+            } catch {
+              // Non JSON message
+            }
+          }
+        }
+      }
+    } catch {
+      // WebSocket fallback
+    }
+
+    const interval = setInterval(() => {
+      alertApi.count().then((r) => setOpenAlertsCount(r.openAlerts)).catch(() => undefined)
+    }, 30000)
+
+    return () => {
+      clearInterval(interval)
+      if (ws && ws.readyState === WebSocket.OPEN) {
+        ws.close()
+      }
+    }
+  }, [user])
+
+  if (user && user.role === 'CASHIER') {
+    return (
+      <Result
+        status="info"
+        title="Tài khoản Thu ngân dùng ứng dụng POS"
+        subTitle="Trang quản trị chỉ dành cho Chủ cửa hàng và Nhân viên"
+        extra={<Button onClick={() => logout().then(() => navigate('/login'))}>Đăng xuất</Button>}
+      />
+    )
+  }
+
+  const items = ENTRIES.filter((e) => hasRole(...e.roles)).map(({ key, label, icon }) => ({ key, label, icon }))
+  const selected = ENTRIES.find((e) => pathname.startsWith(e.key))?.key
+
+  return (
+    <Layout style={{ minHeight: '100vh' }}>
+      <Sider breakpoint="lg" collapsedWidth={0}>
+        <div style={{ color: '#fff', fontWeight: 700, fontSize: 18, padding: 16 }}>
+          <ShopOutlined /> OISM Admin
+        </div>
+        <Menu
+          theme="dark"
+          mode="inline"
+          selectedKeys={selected ? [selected] : []}
+          items={items}
+          onClick={({ key }) => navigate(key)}
+        />
+      </Sider>
+      <Layout>
+        <Header style={{ background: '#fff', display: 'flex', justifyContent: 'space-between', alignItems: 'center', padding: '0 16px' }}>
+          <Space>
+            <Typography.Text strong>{user?.tenantName}</Typography.Text>
+            {openAlertsCount > 0 && (
+              <Badge count={openAlertsCount} overflowCount={99} title={`${openAlertsCount} cảnh báo tồn thấp`}>
+                <Button size="small" type="text" icon={<BellOutlined style={{ color: '#cf1322' }} />} onClick={() => navigate('/dashboard')}>
+                  Cảnh báo
+                </Button>
+              </Badge>
+            )}
+          </Space>
+          <Space>
+            <span>{user?.fullName}</span>
+            {user && <Tag color="blue">{ROLE_LABEL[user.role]}</Tag>}
+            <Button icon={<LogoutOutlined />} onClick={() => logout().then(() => navigate('/login'))}>Đăng xuất</Button>
+          </Space>
+        </Header>
+        <Content style={{ margin: 16 }}>
+          <Outlet />
+        </Content>
+      </Layout>
+    </Layout>
+  )
+}
