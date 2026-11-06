@@ -1,5 +1,14 @@
 package com.oism.integration;
 
+import com.fasterxml.jackson.databind.JsonNode;
+import com.oism.application.order.OrderLine;
+import com.oism.application.order.OrderService;
+import com.oism.domain.exception.BusinessException;
+import com.oism.domain.exception.ErrorCode;
+import com.oism.domain.model.OrderChannel;
+import org.junit.jupiter.api.Test;
+import org.springframework.beans.factory.annotation.Autowired;
+
 import java.util.ArrayList;
 import java.util.List;
 import java.util.UUID;
@@ -11,15 +20,6 @@ import java.util.concurrent.Future;
 import java.util.concurrent.atomic.AtomicInteger;
 
 import static org.junit.jupiter.api.Assertions.assertEquals;
-import org.junit.jupiter.api.Test;
-import org.springframework.beans.factory.annotation.Autowired;
-
-import com.fasterxml.jackson.databind.JsonNode;
-import com.oism.application.order.OrderLine;
-import com.oism.application.order.OrderService;
-import com.oism.domain.exception.BusinessException;
-import com.oism.domain.exception.ErrorCode;
-import com.oism.domain.model.OrderChannel;
 
 class FlashSaleTest extends AbstractIntegrationTest {
 
@@ -37,10 +37,10 @@ class FlashSaleTest extends AbstractIntegrationTest {
         String skuId = product.get("skus").get(0).get("id").asText();
         confirmedReceipt(s, skuId, 1, "50000");
 
-        UUID tenantId = s.getTenantId();
-        UUID branchId = s.getBranchId();
-        // Sửa lỗi: Dùng UUID ngẫu nhiên thay vì s.getUserId() vì class Session không có hàm này
-        UUID userId = UUID.randomUUID(); 
+        // SỬA LỖI TẠI ĐÂY: Dùng đúng cú pháp của record (không có chữ 'get')
+        UUID tenantId = UUID.fromString(s.tenantId());
+        UUID branchId = UUID.fromString(s.branchId());
+        UUID userId = UUID.fromString(s.userId());
         UUID skuUUID = UUID.fromString(skuId);
 
         int threads = 50;
