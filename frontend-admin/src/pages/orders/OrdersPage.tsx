@@ -11,7 +11,7 @@ import type { ColumnsType } from 'antd/es/table'
 import { branchApi, orderApi, skuApi } from '../../api/services'
 import type { Branch, OrderChannel, OrderStatus, OrderView, SkuSearchItem } from '../../api/types'
 
-// --- COMPONENT ĐẾM NGƯỢC THỜI GIAN GIỮ HÀNG (Dành riêng cho M5) ---
+//  ĐẾM NGƯỢC THỜI GIAN GIỮ HÀNG 
 function ReservedCountdown({ targetDate }: { targetDate: string }) {
   const [timeLeft, setTimeLeft] = useState<number>(new Date(targetDate).getTime() - Date.now())
 
@@ -24,7 +24,7 @@ function ReservedCountdown({ targetDate }: { targetDate: string }) {
 
   const minutes = Math.floor((timeLeft / 1000 / 60) % 60)
   const seconds = Math.floor((timeLeft / 1000) % 60)
-  const isUrgent = timeLeft < 5 * 60 * 1000 // Dưới 5 phút thì báo đỏ
+  const isUrgent = timeLeft < 5 * 60 * 1000 // Dưới 5 phút sẽ báo đỏ
 
   return (
     <Tag color={isUrgent ? 'volcano' : 'warning'} icon={<ClockCircleOutlined />}>
