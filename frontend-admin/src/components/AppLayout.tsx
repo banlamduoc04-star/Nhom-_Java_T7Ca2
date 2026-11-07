@@ -7,8 +7,10 @@ import {
   ThunderboltOutlined, UsergroupAddOutlined,
 } from '@ant-design/icons'
 import { Outlet, useLocation, useNavigate } from 'react-router-dom'
+import { Client } from '@stomp/stompjs'
 import { useAuth } from '../auth/AuthContext'
 import { alertApi } from '../api/services'
+import { tokenStore } from '../api/client'
 import type { Role } from '../api/types'
 
 const { Header, Sider, Content } = Layout
@@ -20,7 +22,6 @@ interface Entry {
   roles: Role[]
 }
 
-/** Menu theo vai tro (FR-AUTH-03, JC-32): moi muc chi hien voi vai tro duoc phep. */
 const ENTRIES: Entry[] = [
   { key: '/dashboard', label: 'Tổng quan', icon: <DashboardOutlined />, roles: ['OWNER', 'STAFF'] },
   { key: '/orders', label: 'Đơn hàng', icon: <ShoppingCartOutlined />, roles: ['OWNER', 'STAFF'] },
@@ -42,6 +43,7 @@ const ENTRIES: Entry[] = [
 
 const ROLE_LABEL: Record<Role, string> = { OWNER: 'Chủ cửa hàng', STAFF: 'Nhân viên', CASHIER: 'Thu ngân' }
 
+// Âm thanh thông báo 
 function playNotificationSound() {
   try {
     const AudioCtx = window.AudioContext || (window as unknown as { webkitAudioContext: typeof AudioContext }).webkitAudioContext
@@ -51,15 +53,13 @@ function playNotificationSound() {
     osc.connect(gain)
     gain.connect(ctx.destination)
     osc.type = 'sine'
-    osc.frequency.setValueAtTime(587.33, ctx.currentTime) // D5
-    osc.frequency.setValueAtTime(880, ctx.currentTime + 0.1) // A5
-    gain.gain.setValueAtTime(0.25, ctx.currentTime)
-    gain.gain.exponentialRampToValueAtTime(0.001, ctx.currentTime + 0.45)
+    osc.frequency.setValueAtTime(587.33, ctx.currentTime)
+    osc.frequency.setValueAtTime(880, ctx.currentTime + 0.1) 
+    gain.gain.setValueAtTime(0.2, ctx.currentTime)
+    gain.gain.exponentialRampToValueAtTime(0.001, ctx.currentTime + 0.5)
     osc.start()
-    osc.stop(ctx.currentTime + 0.45)
-  } catch {
-    // Ignore audio context error if browser blocks autoplay
-  }
+    osc.stop(ctx.currentTime + 0.5)
+  } catch { }
 }
 
 export default function AppLayout() {
@@ -68,66 +68,61 @@ export default function AppLayout() {
   const { pathname } = useLocation()
   const [openAlertsCount, setOpenAlertsCount] = useState(0)
 
-  // WebSocket realtime notification listener (JC-28, JC-32)
   useEffect(() => {
     if (!user) return
 
-    // Lay so luong canh bao ton kho
     alertApi.count().then((r) => setOpenAlertsCount(r.openAlerts)).catch(() => undefined)
 
-    // Ket noi WebSocket STOMP toi endpoint /ws
-    let ws: WebSocket | null = null
-    try {
-      const protocol = window.location.protocol === 'https:' ? 'wss:' : 'ws:'
-      const wsUrl = `${protocol}//${window.location.host}/ws`
-      ws = new WebSocket(wsUrl)
+    const tokens = tokenStore.get()
+    const token = tokens ? tokens.accessToken : ''
+    const protocol = window.location.protocol === 'https:' ? 'wss' : 'ws'
+    const brokerURL = `${protocol}://${window.location.host}/ws`
 
-      ws.onopen = () => {
-        // Send STOMP CONNECT frame
-        const connectFrame = `CONNECT\naccept-version:1.2,1.1,1.0\nheart-beat:10000,10000\nAuthorization:Bearer ${localStorage.getItem('access_token') || ''}\n\n\0`
-        ws?.send(connectFrame)
-      }
+    const client = new Client({
+      brokerURL,
+      connectHeaders: { Authorization: `Bearer ${token}` },
+      debug: () => {},
+      reconnectDelay: 5000,
+      heartbeatIncoming: 4000,
+      heartbeatOutgoing: 4000,
+    })
 
-      ws.onmessage = (event) => {
-        const msg = event.data as string
-        if (msg.startsWith('CONNECTED')) {
-          // Subscribe den topic don hang moi cua tenant
-          const subOrders = `SUBSCRIBE\nid:sub-orders\ndestination:/topic/tenants/${user.tenantId}/orders/new\n\n\0`
-          const subAlerts = `SUBSCRIBE\nid:sub-alerts\ndestination:/topic/tenants/${user.tenantId}/alerts\n\n\0`
-          ws?.send(subOrders)
-          ws?.send(subAlerts)
-        } else if (msg.startsWith('MESSAGE')) {
-          const bodyIndex = msg.indexOf('\n\n')
-          if (bodyIndex !== -1) {
-            const rawBody = msg.substring(bodyIndex + 2).replace(/\0$/, '').trim()
-            try {
-              const data = JSON.parse(rawBody)
-              playNotificationSound()
-              if (data.orderCode) {
-                notification.info({
-                  message: 'Đơn hàng mới vừa tạo!',
-                  description: `Mã đơn: ${data.orderCode} - Kênh: ${data.channel || 'POS'} - Tiền: ${Number(data.totalAmount).toLocaleString('vi-VN')} ₫`,
-                  placement: 'topRight',
-                  duration: 6,
-                })
-              } else if (data.skuCode) {
-                notification.warning({
-                  message: 'Cảnh báo tồn kho!',
-                  description: `SKU ${data.skuCode} tại chi nhánh đã xuống dưới ngưỡng đặt lại!`,
-                  placement: 'topRight',
-                  duration: 6,
-                })
-                alertApi.count().then((r) => setOpenAlertsCount(r.openAlerts)).catch(() => undefined)
-              }
-            } catch {
-              // Non JSON message
-            }
-          }
+    client.onConnect = () => {
+      //Đơn hàng mới
+      client.subscribe(`/topic/tenants/${user.tenantId}/orders/new`, (message) => {
+        if (message.body) {
+          try {
+            const data = JSON.parse(message.body)
+            playNotificationSound()
+            notification.info({
+              message: '🔔 Có đơn hàng mới!',
+              description: `Mã đơn: ${data.orderCode} - Kênh: ${data.channel || 'POS'} - Tổng: ${Number(data.totalAmount || 0).toLocaleString('vi-VN')} ₫`,
+              placement: 'topRight',
+              duration: 6,
+            })
+          } catch {  }
         }
-      }
-    } catch {
-      // WebSocket fallback
+      })
+
+      //Cảnh báo tồn kho
+      client.subscribe(`/topic/tenants/${user.tenantId}/alerts`, (message) => {
+        if (message.body) {
+          try {
+            const data = JSON.parse(message.body)
+            playNotificationSound()
+            notification.warning({
+              message: '⚠️ Cảnh báo tồn kho thấp!',
+              description: `SKU ${data.skuCode} tại chi nhánh đã xuống dưới ngưỡng đặt lại!`,
+              placement: 'topRight',
+              duration: 6,
+            })
+            alertApi.count().then((r) => setOpenAlertsCount(r.openAlerts)).catch(() => undefined)
+          } catch {  }
+        }
+      })
     }
+
+    client.activate()
 
     const interval = setInterval(() => {
       alertApi.count().then((r) => setOpenAlertsCount(r.openAlerts)).catch(() => undefined)
@@ -135,9 +130,7 @@ export default function AppLayout() {
 
     return () => {
       clearInterval(interval)
-      if (ws && ws.readyState === WebSocket.OPEN) {
-        ws.close()
-      }
+      client.deactivate()
     }
   }, [user])
 
