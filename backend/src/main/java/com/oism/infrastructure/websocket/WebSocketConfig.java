@@ -1,5 +1,6 @@
 package com.oism.infrastructure.websocket;
 
+import com.oism.application.auth.AuthenticatedUser;
 import com.oism.infrastructure.security.JwtService;
 import org.springframework.context.annotation.Configuration;
 import org.springframework.core.Ordered;
@@ -12,7 +13,9 @@ import org.springframework.messaging.simp.stomp.StompCommand;
 import org.springframework.messaging.simp.stomp.StompHeaderAccessor;
 import org.springframework.messaging.support.ChannelInterceptor;
 import org.springframework.messaging.support.MessageHeaderAccessor;
+import org.springframework.security.access.AccessDeniedException;
 import org.springframework.security.authentication.UsernamePasswordAuthenticationToken;
+import org.springframework.security.core.Authentication;
 import org.springframework.security.core.authority.SimpleGrantedAuthority;
 import org.springframework.web.socket.config.annotation.EnableWebSocketMessageBroker;
 import org.springframework.web.socket.config.annotation.StompEndpointRegistry;
@@ -66,17 +69,30 @@ public class WebSocketConfig implements WebSocketMessageBrokerConfigurer {
                             authHeader = "Bearer " + authHeader;
                         }
                     }
-                    if (authHeader != null && authHeader.startsWith("Bearer ")) {
-                        String token = authHeader.substring(7);
-                        try {
-                            jwtService.parse(token).ifPresent(user -> {
-                                var authentication = new UsernamePasswordAuthenticationToken(
-                                        user, null, List.of(new SimpleGrantedAuthority("ROLE_" + user.role().name())));
-                                accessor.setUser(authentication);
-                            });
-                        } catch (Exception e) {
-                            // Khong throw exception de client xu ly connection close
-                        }
+                    if (authHeader == null || !authHeader.startsWith("Bearer ")) {
+                        throw new AccessDeniedException("Missing WebSocket bearer token");
+                    }
+                    try {
+                        var user = jwtService.parse(authHeader.substring(7))
+                                .orElseThrow(() -> new AccessDeniedException("Invalid WebSocket token"));
+                        var authentication = new UsernamePasswordAuthenticationToken(
+                                user, null, List.of(new SimpleGrantedAuthority("ROLE_" + user.role().name())));
+                        accessor.setUser(authentication);
+                    } catch (AccessDeniedException e) {
+                        throw e;
+                    } catch (Exception e) {
+                        throw new AccessDeniedException("Invalid WebSocket token", e);
+                    }
+                }
+                if (accessor != null && StompCommand.SUBSCRIBE.equals(accessor.getCommand())) {
+                    if (!(accessor.getUser() instanceof Authentication authentication)
+                            || !(authentication.getPrincipal() instanceof AuthenticatedUser user)) {
+                        throw new AccessDeniedException("WebSocket subscription requires authentication");
+                    }
+                    String expectedPrefix = "/topic/tenants/" + user.tenantId() + "/";
+                    String destination = accessor.getDestination();
+                    if (destination == null || !destination.startsWith(expectedPrefix)) {
+                        throw new AccessDeniedException("Cross-tenant WebSocket subscription is forbidden");
                     }
                 }
                 return message;

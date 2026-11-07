@@ -1,5 +1,6 @@
 import { useCallback, useEffect, useRef, useState, type FormEvent } from 'react'
-import { errorText, logout, lookupBarcode, posCheckout, searchSkus, type CheckoutReceipt, type Me } from './api'
+import { errorText, logout, lookupBarcode, posCheckout, searchSkus, tokenStore, USE_MOCK, type CheckoutReceipt, type Me } from './api'
+import { subscribeToNewOrders } from './realtime'
 import { addToCart, cartTotal, itemCount, looksLikeBarcode, removeLine, setQuantity, type CartLine, type SkuInfo } from './cart'
 
 interface Props {
@@ -33,6 +34,26 @@ export default function SaleScreen({ user, onLogout }: Props) {
   const [receipt, setReceipt] = useState<CheckoutReceipt | null>(null)
 
   const total = cartTotal(cart)
+
+  // Realtime notifications are scoped to the authenticated user's tenant.
+  useEffect(() => {
+    if (USE_MOCK || !user.tenantId || !tokenStore.get()) return
+
+    return subscribeToNewOrders(
+      user.tenantId,
+      () => tokenStore.get()?.accessToken ?? null,
+      (event) => {
+        const amount = typeof event.totalAmount === 'number'
+          ? `${event.totalAmount.toLocaleString('vi-VN')} ₫`
+          : ''
+        setNotice({
+          kind: 'ok',
+          text: `Đơn hàng mới ${event.orderCode ?? ''} ${amount}`.trim(),
+        })
+      },
+      () => setNotice({ kind: 'error', text: 'Kết nối thông báo realtime bị gián đoạn.' }),
+    )
+  }, [user.tenantId])
 
   const add = useCallback((sku: SkuInfo) => {
     setCart((current) => {
@@ -91,7 +112,7 @@ export default function SaleScreen({ user, onLogout }: Props) {
     setTimeout(() => cashInputRef.current?.select(), 100)
   }, [cart.length, total])
 
-  const handleCheckout = async () => {
+  const handleCheckout = useCallback(async () => {
     if (!user.branchId) {
       setNotice({ kind: 'error', text: 'Tài khoản chưa được gán chi nhánh để thực hiện thanh toán' })
       return
@@ -119,7 +140,7 @@ export default function SaleScreen({ user, onLogout }: Props) {
     } finally {
       setBusy(false)
     }
-  }
+ }, [user.branchId, paymentMethod, cashGiven, total, cart])
 
   // Phím tắt: F2 tìm, F9 thanh toán, Esc hủy giỏ
   useEffect(() => {
@@ -149,7 +170,7 @@ export default function SaleScreen({ user, onLogout }: Props) {
     }
     window.addEventListener('keydown', onKey)
     return () => window.removeEventListener('keydown', onKey)
-  }, [payOpen, receipt, busy, openCheckout, clearCart])
+ }, [payOpen, receipt, busy, openCheckout, clearCart, handleCheckout])
 
   const changeQuantity = (skuId: string, quantity: number) => {
     const result = setQuantity(cart, skuId, quantity)

@@ -2,11 +2,22 @@ import axios from 'axios'
 import type { SkuInfo } from './cart'
 
 export const API_URL: string = import.meta.env.VITE_API_URL ?? 'http://localhost:8080/api/v1'
+
+/** Resolve the backend STOMP WebSocket endpoint from the configured REST API URL. */
+export function websocketUrl(): string {
+  const url = new URL(API_URL)
+  url.protocol = url.protocol === 'https:' ? 'wss:' : 'ws:'
+  url.pathname = '/ws'
+  url.search = ''
+  url.hash = ''
+  return url.toString()
+}
 /** Dung du lieu gia (theo dac ta OpenAPI) khi backend chua san sang: VITE_USE_MOCK=true. */
 export const USE_MOCK: boolean = import.meta.env.VITE_USE_MOCK === 'true'
 
 export interface Me {
   userId: string
+  tenantId: string
   tenantName: string
   fullName: string
   role: 'OWNER' | 'STAFF' | 'CASHIER'
@@ -106,7 +117,7 @@ const toInfo = (s: SkuSearchItem): SkuInfo => ({
 
 export async function login(identifier: string, password: string): Promise<Me> {
   if (USE_MOCK) {
-    return { userId: 'mock', tenantName: 'Cửa hàng demo (dữ liệu giả)', fullName: 'Thu ngân demo', role: 'CASHIER', branchId: null }
+    return { userId: 'mock', tenantId: 'mock-tenant', tenantName: 'Cửa hàng demo (dữ liệu giả)', fullName: 'Thu ngân demo', role: 'CASHIER', branchId: null }
   }
   const { data } = await http.post<Tokens>('/auth/login', { identifier, password })
   tokenStore.set(data)
