@@ -28,11 +28,7 @@ import java.util.Set;
 import java.util.UUID;
 import java.util.stream.Collectors;
 
-/**
- * Bao cao loi nhuan gop (FR-REP-01):
- * Tinh tu order_item.cost_price da chup khi Confirmed (FR-COST-02).
- * Doanh thu = SL x Gia ban; Gia von = SL x Cost price; Loi nhuan = Doanh thu - Gia von; Bien LN = (Loi nhuan / Doanh thu) x 100%.
- */
+
 @Service
 public class ProfitReportService {
 
@@ -180,7 +176,7 @@ public class ProfitReportService {
     public byte[] exportCsv(UUID tenantId, Instant from, Instant to, UUID branchId, OrderChannel channel, UUID skuId) {
         ProfitSummary summary = getProfitReport(tenantId, from, to, branchId, channel, skuId);
         StringBuilder sb = new StringBuilder();
-        // BOM for Excel UTF-8 display
+        
         sb.append('\ufeff');
         sb.append("Mã đơn,Chi nhánh,Kênh,Mã SKU,Số lượng,Đơn giá,Giá vốn,Doanh thu,Tổng giá vốn,Lợi nhuận gộp,Tỷ suất LN (%)\n");
 
