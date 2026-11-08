@@ -8,6 +8,7 @@ import jakarta.validation.Valid;
 import jakarta.validation.constraints.Max;
 import jakarta.validation.constraints.Min;
 import jakarta.validation.constraints.NotNull;
+import jakarta.validation.constraints.Size;
 import org.springframework.security.access.prepost.PreAuthorize;
 import org.springframework.security.core.annotation.AuthenticationPrincipal;
 import org.springframework.web.bind.annotation.GetMapping;
@@ -28,6 +29,8 @@ public class SettingsController {
     }
 
     public record UpdateSettingsRequest(
+            @Size(max = 150, message = "Tên cửa hàng tối đa 150 ký tự")
+            String storeName,
             @NotNull(message = "Thời gian giữ hàng không được để trống")
             @Min(value = 1, message = "Thời gian giữ hàng tối thiểu 1 phút")
             @Max(value = 1440, message = "Thời gian giữ hàng tối đa 1440 phút (24 giờ)")
@@ -47,7 +50,6 @@ public class SettingsController {
     public TenantSettingsService.TenantSettingsView updateSettings(
             @AuthenticationPrincipal AuthenticatedUser user,
             @Valid @RequestBody UpdateSettingsRequest request) {
-        return tenantSettingsService.updateSettings(user.tenantId(), request.reservationMinutes());
+         return tenantSettingsService.updateSettings(user.tenantId(), request.storeName(), request.reservationMinutes());
     }
-}
-
+} 

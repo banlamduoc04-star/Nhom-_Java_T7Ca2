@@ -27,13 +27,16 @@ public class TenantSettingsService {
         return new TenantSettingsView(tenant.getId(), tenant.getName(), tenant.getReservationMinutes());
     }
 
-    @Transactional
-    public TenantSettingsView updateSettings(UUID tenantId, int reservationMinutes) {
+        @Transactional
+    public TenantSettingsView updateSettings(UUID tenantId, String storeName, int reservationMinutes) {
         if (reservationMinutes < 1 || reservationMinutes > 1440) {
             throw new BusinessException(ErrorCode.OD40001, "Thời hạn giữ hàng phải từ 1 đến 1440 phút (24 giờ)");
         }
         Tenant tenant = tenantRepository.findById(tenantId)
                 .orElseThrow(() -> new BusinessException(ErrorCode.AU40401, "Không tìm thấy tenant"));
+        if (storeName != null && !storeName.isBlank()) {
+            tenant.setName(storeName.trim());
+        }
         tenant.setReservationMinutes(reservationMinutes);
         tenantRepository.save(tenant);
         return new TenantSettingsView(tenant.getId(), tenant.getName(), tenant.getReservationMinutes());

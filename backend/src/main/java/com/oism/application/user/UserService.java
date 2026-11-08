@@ -7,6 +7,7 @@ import com.oism.domain.model.AppUser;
 import com.oism.domain.model.Role;
 import com.oism.domain.repository.AppUserRepository;
 import com.oism.domain.repository.BranchRepository;
+import com.oism.domain.repository.RefreshTokenRepository;
 import org.springframework.security.crypto.password.PasswordEncoder;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
@@ -20,13 +21,16 @@ public class UserService {
 
     private final AppUserRepository appUserRepository;
     private final BranchRepository branchRepository;
+    private final RefreshTokenRepository refreshTokenRepository;
     private final PasswordEncoder passwordEncoder;
 
     public UserService(AppUserRepository appUserRepository,
                        BranchRepository branchRepository,
+                       RefreshTokenRepository refreshTokenRepository,
                        PasswordEncoder passwordEncoder) {
         this.appUserRepository = appUserRepository;
         this.branchRepository = branchRepository;
+        this.refreshTokenRepository = refreshTokenRepository;
         this.passwordEncoder = passwordEncoder;
     }
 
@@ -79,6 +83,9 @@ public class UserService {
         if (user.getId().equals(current.userId()) || user.getRole() == Role.OWNER) {
             throw new BusinessException(ErrorCode.AU40301, "Không khóa được tài khoản Owner");
         }
+          if (!active) {
+            refreshTokenRepository.revokeAllByUserId(user.getId());
+        }
         user.setActive(active);
         return UserView.from(appUserRepository.save(user));
     }
@@ -88,6 +95,7 @@ public class UserService {
         AppUser user = find(tenantId, id);
         user.setPasswordHash(passwordEncoder.encode(newPassword));
         appUserRepository.save(user);
+        refreshTokenRepository.revokeAllByUserId(user.getId());
     }
 
     private AppUser find(UUID tenantId, UUID id) {
