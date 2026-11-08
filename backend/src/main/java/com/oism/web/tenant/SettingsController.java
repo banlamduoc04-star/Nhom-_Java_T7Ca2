@@ -51,5 +51,5 @@ public class SettingsController {
             @AuthenticationPrincipal AuthenticatedUser user,
             @Valid @RequestBody UpdateSettingsRequest request) {
          return tenantSettingsService.updateSettings(user.tenantId(), request.storeName(), request.reservationMinutes());
-}
-
+    }
+} 
