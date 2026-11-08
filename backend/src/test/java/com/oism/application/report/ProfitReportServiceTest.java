@@ -96,4 +96,16 @@ class ProfitReportServiceTest {
         assertTrue(csv.contains("POLO-L"));
         assertTrue(csv.contains("TỔNG CỘNG"));
     }
+
+    @Test
+    void getProfitReport_invalidDateRange_throwsRP40001() {
+        Instant from = Instant.parse("2026-11-05T00:00:00Z");
+        Instant to = Instant.parse("2026-11-01T00:00:00Z");
+
+        com.oism.domain.exception.BusinessException ex = org.junit.jupiter.api.Assertions.assertThrows(
+                com.oism.domain.exception.BusinessException.class,
+                () -> service.getProfitReport(tenantId, from, to, null, null, null));
+
+        assertEquals(com.oism.domain.exception.ErrorCode.RP40001, ex.getErrorCode());
+    }
 }

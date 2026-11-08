@@ -22,8 +22,8 @@ import java.util.List;
 import java.util.UUID;
 
 /**
- * Co che giu hang va tru/nha hang chong ban vuot (FR-RSE-01..03, NFR-PERF-02).
- * Khoa dong stock_balance theo thu tu sku_id tang dan de ngan ngua deadlock tuyet doi.
+ * Cơ chế giữ hàng và trừ/nhả hàng chống bán vượt (FR-RSE-01..03, NFR-PERF-02).
+ * Khóa dòng stock_balance theo thứ tự sku_id tăng dần để ngăn ngừa deadlock tuyệt đối.
  */
 @Service
 public class ReservationService {
@@ -46,8 +46,9 @@ public class ReservationService {
     }
 
     /**
-     * Giu hang (Draft -> Reserved): sap xep theo skuId tang dan, khoa FOR UPDATE tung dong,
-     * kiem tra available = on_hand - reserved >= quantity, neu khong du throw IV40901.
+     * Giữ hàng (Draft -> Reserved):
+     * Sắp xếp theo skuId tăng dần, khóa FOR UPDATE từng dòng,
+     * kiểm tra available = on_hand - reserved >= quantity, nếu không đủ throw IV40901.
      */
     @Transactional(propagation = Propagation.MANDATORY)
     public void reserve(UUID tenantId, UUID branchId, List<OrderItem> items) {
@@ -73,7 +74,7 @@ public class ReservationService {
     }
 
     /**
-     * Nha hang giu (Reserved -> Cancelled): giam reserved cua tung SKU theo thu tu skuId tang dan.
+     * Nhả hàng giữ (Reserved -> Cancelled): giảm reserved của từng SKU theo thứ tự skuId tăng dần.
      */
     @Transactional(propagation = Propagation.MANDATORY)
     public void release(UUID tenantId, UUID branchId, List<OrderItem> items) {
@@ -91,8 +92,11 @@ public class ReservationService {
     }
 
     /**
-     * Xac nhan don (Reserved -> Confirmed): nha reserved, ghi so cai OUT_SALE qua InventoryLedgerService,
-     * va chup cost_price tu avg_cost hien tai cua SKU vao order_item (FR-COST-02).
+     * Xác nhận đơn (Reserved -> Confirmed):
+     * BƯỚC 1: Chụp cost_price (avg_cost) vào order_item (FR-COST-02).
+     * BƯỚC 2: Gọi ledgerService.post() để trừ on_hand (hàm này check available >= quantity).
+     * BƯỚC 3: Giảm reserved (SAU KHI trừ on_hand thành công).
+     * TUYỆT ĐỐI KHÔNG giảm reserved trước vì sẽ vô hiệu hóa check chống bán vượt.
      */
     @Transactional(propagation = Propagation.MANDATORY)
     public void confirm(UUID tenantId, UUID branchId, UUID orderId, List<OrderItem> items, UUID userId) {
@@ -101,31 +105,29 @@ public class ReservationService {
                 .toList();
 
         for (OrderItem item : sorted) {
-            StockBalance balance = stockBalanceRepository.findForUpdate(tenantId, branchId, item.getSkuId())
-                    .orElseThrow(() -> new IllegalStateException("Không khóa được dòng tồn kho"));
-
-            // Giam reserved truoc de tang lai available truoc khi ledgerService.post kiem tra available
-            balance.applyReserved(Math.max(0, balance.getReserved() - item.getQuantity()));
-            stockBalanceRepository.save(balance);
-
-            // Lay avg_cost hien tai cua SKU de chup vao don hang (FR-COST-02)
+            // BƯỚC 1: Chụp giá vốn hiện tại (avg_cost) vào order_item
             Sku sku = skuRepository.findForUpdate(item.getSkuId(), tenantId)
                     .orElseThrow(() -> new BusinessException(ErrorCode.PR40401, "Không tìm thấy SKU"));
-
             BigDecimal costPrice = sku.getAvgCost();
             item.setCostPrice(costPrice);
             orderItemRepository.save(item);
 
-            // Ghi but toan xuat ban hang vao so cai
+            // BƯỚC 2: Ghi sổ cái OUT/SALE - hàm này check available >= quantity và trừ on_hand
             ledgerService.post(new LedgerEntry(
                     tenantId, branchId, item.getSkuId(), StockDirection.OUT, StockReason.SALE,
                     item.getQuantity(), costPrice, REF_TYPE_ORDER, orderId, userId
             ));
+
+            // BƯỚC 3: Chỉ sau khi trừ on_hand thành công mới giảm reserved
+            StockBalance balance = stockBalanceRepository.findForUpdate(tenantId, branchId, item.getSkuId())
+                    .orElseThrow(() -> new IllegalStateException("Không khóa được dòng tồn kho"));
+            balance.applyReserved(Math.max(0, balance.getReserved() - item.getQuantity()));
+            stockBalanceRepository.save(balance);
         }
     }
 
     /**
-     * Hoan tra hang (Confirmed -> Cancelled): ghi so cai IN voi StockReason.RETURN de bu lai ton kho.
+     * Hoàn trả hàng (Confirmed -> Cancelled): ghi sổ cái IN với StockReason.RETURN để bù lại tồn kho.
      */
     @Transactional(propagation = Propagation.MANDATORY)
     public void returnStock(UUID tenantId, UUID branchId, UUID orderId, List<OrderItem> items, UUID userId) {

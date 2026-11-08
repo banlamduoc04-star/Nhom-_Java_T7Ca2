@@ -1,6 +1,6 @@
 import { useCallback, useEffect, useState } from 'react'
 import {
-  Alert, Button, Card, Col, Form, Input, InputNumber, Progress, Row, Select, Space,
+  Alert, Button, Card, Col, Form, Input, InputNumber, Progress, Row, Select,
   Statistic, Tag, Typography, message,
 } from 'antd'
 import {
@@ -9,42 +9,59 @@ import {
 import { branchApi, simulatorApi, skuApi } from '../../api/services'
 import type { Branch, SimulationResult, SkuSearchItem } from '../../api/types'
 
+interface SimulateFormValues {
+  branchId: string
+  channel: 'SHOPEE' | 'LAZADA' | 'TIKTOK'
+  skuId: string
+  orderCount: number
+  quantityPerOrder: number
+}
+
+interface WebhookFormValues {
+  channel: 'SHOPEE' | 'LAZADA' | 'TIKTOK'
+  externalOrderId: string
+  branchId: string
+  customerName?: string
+  customerPhone?: string
+  shippingAddress?: string
+  skuId: string
+  quantity: number
+}
+
 export default function SimulatorPage() {
   const [branches, setBranches] = useState<Branch[]>([])
   const [skus, setSkus] = useState<SkuSearchItem[]>([])
+
+  // State cho Flash Sale
   const [simLoading, setSimLoading] = useState(false)
   const [simResult, setSimResult] = useState<SimulationResult | null>(null)
 
+  // State cho Webhook
   const [webhookLoading, setWebhookLoading] = useState(false)
-  const [webhookResult, setWebhookResult] = useState<any>(null)
+  const [webhookResult, setWebhookResult] = useState<unknown>(null)
 
-  const [simForm] = Form.useForm()
-  const [webhookForm] = Form.useForm()
+  const [simForm] = Form.useForm<SimulateFormValues>()
+  const [webhookForm] = Form.useForm<WebhookFormValues>()
 
   const loadBranches = useCallback(async () => {
     try {
       const bs = await branchApi.list()
       setBranches(bs)
-    } catch {
-      // ignore
-    }
+    } catch { /* ignore */ }
   }, [])
 
-  useEffect(() => {
-    loadBranches()
-  }, [loadBranches])
+  useEffect(() => { loadBranches() }, [loadBranches])
 
   const handleSearchSku = async (keyword: string) => {
     if (!keyword) return
     try {
       const data = await skuApi.search({ keyword, status: 'ACTIVE', size: 10 })
       setSkus(data.content)
-    } catch {
-      // ignore
-    }
+    } catch { /* ignore */ }
   }
 
-  const handleRunSimulation = async (values: any) => {
+  // 1. XỬ LÝ CHẠY FLASH SALE (ĐA LUỒNG)
+  const handleRunSimulation = async (values: SimulateFormValues) => {
     setSimLoading(true)
     setSimResult(null)
     try {
@@ -63,7 +80,8 @@ export default function SimulatorPage() {
     }
   }
 
-  const handleSendWebhook = async (values: any) => {
+  // 2. XỬ LÝ BẮN WEBHOOK SÀN thuong mai dien tu
+  const handleSendWebhook = async (values: WebhookFormValues) => {
     setWebhookLoading(true)
     setWebhookResult(null)
     try {
@@ -92,9 +110,9 @@ export default function SimulatorPage() {
       </Typography.Title>
 
       <Row gutter={24}>
-        {/* FLASH SALE CONCURRENCY SIMULATOR */}
-        <Col span={12}>
-          <Card title="1. Mô phỏng Đua đơn Flash Sale (Đa luồng)">
+        {/* cột trái FLASH SALE CONCURRENCY SIMULATOR */}
+        <Col xs={24} lg={12}>
+          <Card title="1. Mô phỏng Đua đơn Flash Sale (Đa luồng)" style={{ height: '100%' }}>
             <Alert
               type="info"
               showIcon
@@ -162,53 +180,56 @@ export default function SimulatorPage() {
               </Button>
             </Form>
 
+            {/* KẾT QUẢ FLASH SALE  */}
             {simResult && (
-              <div style={{ marginTop: 24, padding: 16, background: '#fafafa', borderRadius: 8 }}>
-                <Typography.Title level={5}>Kết quả kiểm thử đồng thời:</Typography.Title>
+              <div style={{
+                marginTop: 24,
+                padding: 20,
+                background: simResult.failed > 0 ? '#fff1f0' : '#f6ffed',
+                borderRadius: 8,
+                border: simResult.failed > 0 ? '1px solid #ffa39e' : '1px solid #b7eb8f'
+              }}>
+                <Typography.Title level={4} style={{ color: simResult.failed > 0 ? '#cf1322' : '#389e0d', marginTop: 0 }}>
+                  {simResult.failed > 0 ? '🔥 KẾT QUẢ FLASH SALE (ĐÃ CHẶN BÁN VƯỢT)' : '✅ KẾT QUẢ FLASH SALE'}
+                </Typography.Title>
+
                 <Row gutter={16} style={{ marginBottom: 16 }}>
                   <Col span={8}>
-                    <Statistic title="Tổng số yêu cầu" value={simResult.requested} />
+                    <Statistic title="Tổng yêu cầu" value={simResult.requested} />
                   </Col>
                   <Col span={8}>
-                    <Statistic
-                      title="Thành công"
-                      value={simResult.successful}
-                      valueStyle={{ color: '#3f8600' }}
-                      prefix={<CheckCircleOutlined />}
-                    />
+                    <Statistic title="Đơn giật thành công" value={simResult.successful} valueStyle={{ color: '#3f8600' }} prefix={<CheckCircleOutlined />} />
                   </Col>
                   <Col span={8}>
-                    <Statistic
-                      title="Từ chối (Hết tồn)"
-                      value={simResult.failed}
-                      valueStyle={{ color: '#cf1322' }}
-                      prefix={<CloseCircleOutlined />}
-                    />
+                    <Statistic title="Đơn bị chặn (Hết hàng)" value={simResult.failed} valueStyle={{ color: '#cf1322' }} prefix={<CloseCircleOutlined />} />
                   </Col>
                 </Row>
-                <p><strong>Thời gian xử lý:</strong> {simResult.durationMs} ms</p>
+
+                <div style={{ marginBottom: 8, display: 'flex', justifyContent: 'space-between' }}>
+                  <span>Thời gian xử lý (Pessimistic Lock):</span>
+                  <strong>{simResult.durationMs} ms</strong>
+                </div>
                 <Progress
                   percent={Math.round((simResult.successful / simResult.requested) * 100)}
-                  status={simResult.failed > 0 ? 'normal' : 'success'}
+                  status={simResult.failed > 0 ? 'exception' : 'success'}
+                  strokeColor={{ '0%': '#108ee9', '100%': '#87d068' }}
                 />
 
                 {simResult.successfulOrderCodes.length > 0 && (
-                  <div style={{ marginTop: 12 }}>
-                    <strong>Mã các đơn giữ hàng thành công:</strong>
-                    <div style={{ maxHeight: 100, overflowY: 'auto', marginTop: 4 }}>
-                      <Space wrap size={[4, 4]}>
-                        {simResult.successfulOrderCodes.map((c) => (
-                          <Tag color="green" key={c}>{c}</Tag>
-                        ))}
-                      </Space>
+                  <div style={{ marginTop: 16 }}>
+                    <Typography.Text strong>Mã đơn được tạo (Tối đa 1):</Typography.Text>
+                    <div style={{ marginTop: 8 }}>
+                      <Tag color="success" style={{ fontSize: 14, padding: '4px 8px' }}>{simResult.successfulOrderCodes[0]}</Tag>
                     </div>
                   </div>
                 )}
 
                 {simResult.errors.length > 0 && (
-                  <div style={{ marginTop: 12 }}>
-                    <strong style={{ color: '#cf1322' }}>Thông điệp chặn (Oversell Prevention):</strong>
-                    <p style={{ color: '#888', fontSize: 13 }}>{simResult.errors[0]}</p>
+                  <div style={{ marginTop: 16, padding: 12, background: '#fff', borderLeft: '4px solid #cf1322' }}>
+                    <strong>Log hệ thống (Mẫu):</strong>
+                    <p style={{ color: '#cf1322', margin: '4px 0 0 0', fontFamily: 'monospace' }}>
+                      {simResult.errors[0]}
+                    </p>
                   </div>
                 )}
               </div>
@@ -216,9 +237,9 @@ export default function SimulatorPage() {
           </Card>
         </Col>
 
-        {/* WEBHOOK SIMULATOR */}
-        <Col span={12}>
-          <Card title="2. Thử nghiệm Webhook Đơn hàng từ Sàn TMĐT">
+        {/* CỘT PHẢI: WEBHOOK SIMULATOR */}
+        <Col xs={24} lg={12}>
+          <Card title="2. Thử nghiệm Webhook Đơn hàng từ Sàn TMĐT" style={{ height: '100%' }}>
             <Alert
               type="success"
               showIcon
@@ -314,10 +335,10 @@ export default function SimulatorPage() {
               </Button>
             </Form>
 
-            {webhookResult && (
+            {webhookResult !== null && webhookResult !== undefined && (
               <div style={{ marginTop: 24, padding: 16, background: '#fafafa', borderRadius: 8 }}>
                 <Typography.Title level={5}>Phản hồi từ Webhook API:</Typography.Title>
-                <pre style={{ background: '#f0f0f0', padding: 12, borderRadius: 4, overflowX: 'auto', fontSize: 12 }}>
+                <pre style={{ background: '#f0f0f0', padding: 12, borderRadius: 4, overflowX: 'auto', fontSize: 12, maxHeight: 200 }}>
                   {JSON.stringify(webhookResult, null, 2)}
                 </pre>
               </div>

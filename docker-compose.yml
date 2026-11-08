@@ -1,3 +1,5 @@
+name: oism
+
 # Chay toan he thong: docker compose up -d --build
 # Giao dien (React + Vite, nginx) la tuy chon: docker compose --profile frontend up -d --build
 # Nap du lieu mau demo: dat OISM_SEED_ENABLED=true (xem docs/huong-dan/huong-dan-chay-du-an.md)
