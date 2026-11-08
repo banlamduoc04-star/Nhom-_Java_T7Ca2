@@ -26,6 +26,6 @@ export const branchAdminApi = {
 
 export const settingsApi = {
   get: () => data(api.get<TenantSettings>('/settings')),
-  update: (reservationMinutes: number) =>
-    data(api.put<TenantSettings>('/settings', { reservationMinutes })),
+  update: (body: { storeName?: string; reservationMinutes: number }) =>
+    data(api.put<TenantSettings>('/settings', body)),
 }
