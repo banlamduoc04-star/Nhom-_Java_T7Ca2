@@ -1,6 +1,6 @@
 package com.oism.domain.repository;
 
-import com.oism.infrastructure.entity.LedgerEntryEntity;
+import com.oism.domain.model.LedgerEntryEntity;
 import org.springframework.data.domain.Pageable;
 import org.springframework.data.jpa.repository.JpaRepository;
 import org.springframework.data.jpa.repository.Query;
@@ -24,5 +24,8 @@ public interface LedgerRepository extends JpaRepository<LedgerEntryEntity, Long>
             Pageable pageable);
 
     Optional<LedgerEntryEntity> findTopByTenantIdAndAccountIdOrderByCreatedAtDescIdDesc(
+            String tenantId, String accountId);
+
+    Optional<LedgerEntryEntity> findTopByTenantIdAndAccountIdOrderByIdDesc(
             String tenantId, String accountId);
 }

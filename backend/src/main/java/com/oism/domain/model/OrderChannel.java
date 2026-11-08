@@ -4,5 +4,6 @@ public enum OrderChannel {
     POS,
     MANUAL,
     SHOPEE,
-    TIKTOK
+    TIKTOK,
+    LAZADA
 }

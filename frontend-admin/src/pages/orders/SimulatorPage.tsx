@@ -217,9 +217,13 @@ export default function SimulatorPage() {
 
                 {simResult.successfulOrderCodes.length > 0 && (
                   <div style={{ marginTop: 16 }}>
-                    <Typography.Text strong>Mã đơn được tạo (Tối đa 1):</Typography.Text>
-                    <div style={{ marginTop: 8 }}>
-                      <Tag color="success" style={{ fontSize: 14, padding: '4px 8px' }}>{simResult.successfulOrderCodes[0]}</Tag>
+                    <Typography.Text strong>Mã đơn được tạo ({simResult.successfulOrderCodes.length}):</Typography.Text>
+                    <div style={{ marginTop: 8, display: 'flex', flexWrap: 'wrap', gap: 6 }}>
+                      {simResult.successfulOrderCodes.map((code) => (
+                        <Tag key={code} color="success" style={{ fontSize: 14, padding: '4px 8px' }}>
+                          {code}
+                        </Tag>
+                      ))}
                     </div>
                   </div>
                 )}

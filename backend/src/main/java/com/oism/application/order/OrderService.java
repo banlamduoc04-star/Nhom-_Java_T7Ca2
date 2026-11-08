@@ -364,7 +364,7 @@ public class OrderService {
                 return code;
             }
         }
-        throw new IllegalStateException("Không sinh được mã đơn hàng");
+        return "DH-" + date + "-" + UUID.randomUUID().toString().substring(0, 8).toUpperCase();
     }
 
     private static String blankToNull(String value) {

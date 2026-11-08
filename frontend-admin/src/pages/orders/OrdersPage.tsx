@@ -59,6 +59,16 @@ interface CreateOrderFormValues {
   items: { skuId: string; quantity: number }[]
 }
 
+function escapeHtml(str?: string | null): string {
+  if (!str) return ''
+  return String(str)
+    .replace(/&/g, '&amp;')
+    .replace(/</g, '&lt;')
+    .replace(/>/g, '&gt;')
+    .replace(/"/g, '&quot;')
+    .replace(/'/g, '&#39;')
+}
+
 export default function OrdersPage() {
   const [orders, setOrders] = useState<OrderView[]>([])
   const [total, setTotal] = useState(0)
@@ -153,7 +163,6 @@ export default function OrdersPage() {
     }
   }
 
-  // Hàm in phiếu tối ưu (Ẩn iframe thay vì popup để không bị trình duyệt chặn)
   const handlePrintSlip = (order: OrderView) => {
     const printWindow = document.createElement('iframe')
     printWindow.style.position = 'fixed'
@@ -167,10 +176,16 @@ export default function OrdersPage() {
     const doc = printWindow.contentWindow?.document
     if (!doc) return
 
+    const safeCode = escapeHtml(order.code)
+    const safeChannel = escapeHtml(order.channel)
+    const safeCustomer = escapeHtml(order.customerName || 'Khách lẻ')
+    const safePhone = escapeHtml(order.customerPhone || '—')
+    const safeAddress = escapeHtml(order.shippingAddress || 'Nhận tại cửa hàng')
+
     const itemsHtml = order.items.map((i, idx) => `
       <tr>
         <td style="padding: 8px; border-bottom: 1px solid #ddd; text-align: center;">${idx + 1}</td>
-        <td style="padding: 8px; border-bottom: 1px solid #ddd;"><strong>${i.skuCode}</strong></td>
+        <td style="padding: 8px; border-bottom: 1px solid #ddd;"><strong>${escapeHtml(i.skuCode)}</strong></td>
         <td style="padding: 8px; border-bottom: 1px solid #ddd; text-align: center;">${i.quantity}</td>
         <td style="padding: 8px; border-bottom: 1px solid #ddd; text-align: right;">${i.unitPrice.toLocaleString('vi-VN')} ₫</td>
         <td style="padding: 8px; border-bottom: 1px solid #ddd; text-align: right;">${i.lineTotal.toLocaleString('vi-VN')} ₫</td>
@@ -181,7 +196,7 @@ export default function OrdersPage() {
       <!DOCTYPE html>
       <html>
         <head>
-          <title>Phiếu giao hàng - ${order.code}</title>
+          <title>Phiếu giao hàng - ${safeCode}</title>
           <style>
             body { font-family: 'Segoe UI', Tahoma, sans-serif; padding: 20px; color: #333; }
             .header { text-align: center; margin-bottom: 20px; }
@@ -195,12 +210,12 @@ export default function OrdersPage() {
         <body>
           <div class="header">
             <h2>PHIẾU ĐÓNG GÓI & GIAO HÀNG</h2>
-            <p>Mã đơn: <strong>${order.code}</strong></p>
+            <p>Mã đơn: <strong>${safeCode}</strong></p>
           </div>
           <div class="meta">
-            <p><strong>Kênh:</strong> ${order.channel} | <strong>Ngày tạo:</strong> ${new Date(order.createdAt).toLocaleString('vi-VN')}</p>
-            <p><strong>Khách hàng:</strong> ${order.customerName || 'Khách lẻ'} - SĐT: ${order.customerPhone || '—'}</p>
-            <p><strong>Địa chỉ giao:</strong> ${order.shippingAddress || 'Nhận tại cửa hàng'}</p>
+            <p><strong>Kênh:</strong> ${safeChannel} | <strong>Ngày tạo:</strong> ${new Date(order.createdAt).toLocaleString('vi-VN')}</p>
+            <p><strong>Khách hàng:</strong> ${safeCustomer} - SĐT: ${safePhone}</p>
+            <p><strong>Địa chỉ giao:</strong> ${safeAddress}</p>
           </div>
           <table>
             <thead>

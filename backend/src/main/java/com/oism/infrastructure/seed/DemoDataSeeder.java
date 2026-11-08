@@ -17,8 +17,12 @@ import com.oism.application.inventory.ReceiptLine;
 import com.oism.application.inventory.ReceiptView;
 import com.oism.application.inventory.SupplierService;
 import com.oism.application.inventory.SupplierView;
+import com.oism.application.order.OrderLine;
+import com.oism.application.order.OrderService;
+import com.oism.application.order.OrderView;
 import com.oism.application.user.UserService;
 import com.oism.domain.model.BranchType;
+import com.oism.domain.model.OrderChannel;
 import com.oism.domain.model.Role;
 import com.oism.domain.repository.AppUserRepository;
 import com.oism.domain.service.Ean13;
@@ -35,11 +39,6 @@ import java.util.List;
 import java.util.Map;
 import java.util.UUID;
 
-/**
- * Du lieu mau cho demo/dev (Sprint 2): 2 tenant, chi nhanh, danh muc, 50 SKU, nha cung cap, tai khoan moi vai tro,
- * phieu nhap da xac nhan (co ton kho + gia von). Chi chay khi oism.seed.enabled=true; chay lai khong tao trung.
- * Mat khau mau chi dung cho dev/demo, khong dung o moi truong that.
- */
 @Component
 @ConditionalOnProperty(name = "oism.seed.enabled", havingValue = "true")
 public class DemoDataSeeder implements ApplicationRunner {
@@ -67,11 +66,12 @@ public class DemoDataSeeder implements ApplicationRunner {
     private final ProductService productService;
     private final SupplierService supplierService;
     private final PurchaseReceiptService receiptService;
+    private final OrderService orderService;
 
     public DemoDataSeeder(AppUserRepository appUserRepository, AuthService authService, BranchService branchService,
                           UserService userService, CategoryService categoryService, BrandService brandService,
                           ProductService productService, SupplierService supplierService,
-                          PurchaseReceiptService receiptService) {
+                          PurchaseReceiptService receiptService, OrderService orderService) {
         this.appUserRepository = appUserRepository;
         this.authService = authService;
         this.branchService = branchService;
@@ -81,6 +81,7 @@ public class DemoDataSeeder implements ApplicationRunner {
         this.productService = productService;
         this.supplierService = supplierService;
         this.receiptService = receiptService;
+        this.orderService = orderService;
     }
 
     @Override
@@ -134,7 +135,6 @@ public class DemoDataSeeder implements ApplicationRunner {
             allSkus.addAll(product.skus());
         }
 
-        // Phieu nhap 1: toan bo 50 SKU, gia nhap = 60% gia ban; phieu 2: 5 SKU dau voi gia nhap khac de thay gia von binh quan
         List<ReceiptLine> first = allSkus.stream()
                 .map(s -> new ReceiptLine(s.id(), 20, s.retailPrice().multiply(BigDecimal.valueOf(0.6))))
                 .toList();
@@ -143,6 +143,30 @@ public class DemoDataSeeder implements ApplicationRunner {
                 .map(s -> new ReceiptLine(s.id(), 10, s.retailPrice().multiply(BigDecimal.valueOf(0.7))))
                 .toList();
         confirm(tenantId, reg.userId(), mainBranch, suppliers.get(1).id(), second);
+
+        OrderView shopeeOrder1 = orderService.createAndReserve(tenantId, reg.userId(), mainBranch, OrderChannel.SHOPEE,
+                "SHOPEE-VN-88231", "Nguyen Van An", "0912345678", "123 Le Loi, Quan 1, TP HCM",
+                List.of(new OrderLine(allSkus.get(0).id(), 2), new OrderLine(allSkus.get(1).id(), 1)));
+        orderService.confirm(tenantId, shopeeOrder1.id(), reg.userId());
+        orderService.complete(tenantId, shopeeOrder1.id(), reg.userId());
+
+        orderService.createAndReserve(tenantId, reg.userId(), mainBranch, OrderChannel.SHOPEE,
+                "SHOPEE-VN-88232", "Tran Thi Bich", "0912345679", "456 Nguyen Hue, Quan 1, TP HCM",
+                List.of(new OrderLine(allSkus.get(2).id(), 1)));
+
+        OrderView tiktokOrder1 = orderService.createAndReserve(tenantId, reg.userId(), mainBranch, OrderChannel.TIKTOK,
+                "TIKTOK-VN-99411", "Le Hoang Nam", "0987654321", "789 Tran Hung Dao, Quan 5, TP HCM",
+                List.of(new OrderLine(allSkus.get(3).id(), 1)));
+        orderService.confirm(tenantId, tiktokOrder1.id(), reg.userId());
+
+        orderService.createAndReserve(tenantId, reg.userId(), mainBranch, OrderChannel.TIKTOK,
+                "TIKTOK-VN-99412", "Pham Minh Chau", "0987654322", "12 Nguyen Thi Minh Khai, Quan 3, TP HCM",
+                List.of(new OrderLine(allSkus.get(4).id(), 2)));
+
+        OrderView lazadaOrder1 = orderService.createAndReserve(tenantId, reg.userId(), mainBranch, OrderChannel.LAZADA,
+                "LAZADA-VN-77101", "Vo Thi Mai", "0933112233", "88 Hai Ba Trung, Quan 1, TP HCM",
+                List.of(new OrderLine(allSkus.get(5).id(), 1)));
+        orderService.confirm(tenantId, lazadaOrder1.id(), reg.userId());
     }
 
     private void seedTenantB() {
