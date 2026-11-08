@@ -19,4 +19,4 @@ public interface BranchRepository extends JpaRepository<Branch, UUID> {
 
     long countByTenantIdAndActiveTrue(UUID tenantId);
 }
-}
+
