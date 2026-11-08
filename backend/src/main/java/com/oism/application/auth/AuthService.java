@@ -127,7 +127,19 @@ public class AuthService {
         refreshTokenRepository.save(stored);
         return issueTokens(user);
     }
-
+        /** Đăng xuất: thu hồi toàn bộ refresh token của người dùng. */
+    @Transactional
+    public void logout(AuthenticatedUser current, String refreshToken) {
+        if (refreshToken != null && !refreshToken.isBlank()) {
+            refreshTokenRepository.findByTokenHash(hash(refreshToken.trim()))
+                    .ifPresent(token -> {
+                        token.revoke();
+                        refreshTokenRepository.save(token);
+                    });
+        }
+        // Hoặc thu hồi tất cả các token đang hoạt động của user này
+        refreshTokenRepository.revokeAllByUserId(current.userId());
+    }
        /** Nguoi dung tu doi mat khau. Sai mat khau cu -> AU40001 (khong dung 401 de client khong tu refresh). */
     @Transactional
     public void changePassword(AuthenticatedUser current, String currentPassword, String newPassword) {
