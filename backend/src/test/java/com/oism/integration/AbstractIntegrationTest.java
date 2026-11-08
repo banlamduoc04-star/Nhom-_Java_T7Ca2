@@ -27,7 +27,7 @@ import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.
 
 @SpringBootTest
 @AutoConfigureMockMvc
-abstract class AbstractIntegrationTest {
+public abstract class AbstractIntegrationTest {
 
     static final String PASSWORD = "Test@12345";
 
@@ -42,6 +42,7 @@ abstract class AbstractIntegrationTest {
         registry.add("spring.datasource.url", POSTGRES::getJdbcUrl);
         registry.add("spring.datasource.username", POSTGRES::getUsername);
         registry.add("spring.datasource.password", POSTGRES::getPassword);
+        registry.add("spring.datasource.hikari.maximum-pool-size", () -> 50);
     }
 
     @Autowired

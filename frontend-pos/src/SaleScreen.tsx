@@ -199,7 +199,8 @@ export default function SaleScreen({ user, onLogout }: Props) {
           {cart.length === 0 ? (
             <p className="muted">Chưa có sản phẩm. Quét mã vạch để thêm.</p>
           ) : (
-            <table>
+            <div className="table-wrap">
+              <table>
               <thead>
                 <tr><th>Sản phẩm</th><th>Đơn giá</th><th>SL</th><th>Thành tiền</th><th /></tr>
               </thead>
@@ -225,6 +226,7 @@ export default function SaleScreen({ user, onLogout }: Props) {
                 ))}
               </tbody>
             </table>
+            </div>
           )}
           <div className="total">
             <span>Tổng cộng</span>
@@ -239,10 +241,9 @@ export default function SaleScreen({ user, onLogout }: Props) {
         </section>
       </main>
 
-      {/* thanh toán */}
-      {payOpen && (
+            {payOpen && (
         <div className="modal no-print" role="dialog" aria-modal="true" aria-label="Thanh toán">
-          <div className="card" style={{ width: 460 }}>
+          <div className="card" style={{ width: "100%", maxWidth: 460 }}>
             <h2>Thanh toán đơn hàng</h2>
             <div style={{ fontSize: '1.2rem', marginBottom: 12 }}>
               Tổng tiền thanh toán: <strong style={{ color: '#1677ff' }}>{money(total)}</strong>

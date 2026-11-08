@@ -1,7 +1,7 @@
 package com.oism.application.service;
 
 import com.oism.domain.dto.DashboardSummaryDTO;
-import com.oism.infrastructure.repository.ReportRepository;
+import com.oism.domain.repository.ReportRepository;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 

@@ -1,6 +1,6 @@
 package com.oism.domain.repository;
 
-import com.oism.infrastructure.entity.InventoryEntity;
+import com.oism.domain.model.InventoryEntity;
 import org.springframework.data.jpa.repository.JpaRepository;
 import org.springframework.stereotype.Repository;
 

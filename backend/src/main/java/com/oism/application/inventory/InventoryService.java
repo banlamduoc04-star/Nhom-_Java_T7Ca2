@@ -1,34 +1,33 @@
-package com.oism.domain.service;
+package com.oism.application.inventory;
 
-import com.osim.app.infrastructure.entity.InventoryEntity;
-import com.osim.app.infrastructure.repository.InventoryRepository;
-import lombok.RequiredArgsConstructor;
-import org.redisson.api.RLock;
-import org.redisson.api.RedissonClient;
+import com.oism.domain.model.InventoryEntity;
+import com.oism.domain.repository.InventoryRepository;
+import com.oism.domain.service.CostCalculator;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
 import java.math.BigDecimal;
+import java.util.concurrent.ConcurrentHashMap;
 import java.util.concurrent.TimeUnit;
+import java.util.concurrent.locks.ReentrantLock;
 
-/**
- * Service Quản lý tồn kho: Xử lý trừ kho an toàn, khóa đồng bộ Redis (Bug-INV-01).
- */
 @Service
-@RequiredArgsConstructor
 public class InventoryService {
 
     private final InventoryRepository inventoryRepository;
-    private final RedissonClient redissonClient;
-    private final CostCalculator costCalculator;
+    private final ConcurrentHashMap<String, ReentrantLock> locks = new ConcurrentHashMap<>();
+
+    public InventoryService(InventoryRepository inventoryRepository) {
+        this.inventoryRepository = inventoryRepository;
+    }
 
     @Transactional
     public void deductStock(String tenantId, String skuCode, long quantity) {
-        String lockKey = "lock:inventory:" + tenantId + ":" + skuCode;
-        RLock lock = redissonClient.getLock(lockKey);
+        String lockKey = tenantId + ":" + skuCode;
+        ReentrantLock lock = locks.computeIfAbsent(lockKey, k -> new ReentrantLock());
 
         try {
-            if (lock.tryLock(5, 10, TimeUnit.SECONDS)) {
+            if (lock.tryLock(5, TimeUnit.SECONDS)) {
                 try {
                     InventoryEntity inventory = inventoryRepository.findByTenantIdAndSkuCode(tenantId, skuCode)
                             .orElseThrow(() -> new IllegalArgumentException("SKU không tồn tại trong kho"));
@@ -64,7 +63,7 @@ public class InventoryService {
         BigDecimal currentQtyBD = BigDecimal.valueOf(inventory.getQuantity());
         BigDecimal currentTotalVal = currentQtyBD.multiply(inventory.getAverageUnitCost());
 
-        BigDecimal newAverageCost = costCalculator.calculateMovingAverageCost(
+        BigDecimal newAverageCost = CostCalculator.calculateMovingAverageCost(
                 currentQtyBD, currentTotalVal, BigDecimal.valueOf(incomingQty), unitPrice
         );
 
