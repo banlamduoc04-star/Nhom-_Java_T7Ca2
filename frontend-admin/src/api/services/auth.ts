@@ -15,5 +15,7 @@ export const authApi = {
     }
     tokenStore.clear()
   },
-  me: () => data(api.get<Me>('/me')),
+   me: () => data(api.get<Me>('/me')),
+  changePassword: (currentPassword: string, newPassword: string) =>
+    data(api.put('/me/password', { currentPassword, newPassword })),
 }

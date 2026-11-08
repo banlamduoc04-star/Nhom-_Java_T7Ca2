@@ -16,7 +16,7 @@ public enum ErrorCode {
     AU40401(404, "Không tìm thấy người dùng hoặc chi nhánh"),
     AU40901(409, "Email hoặc tên chi nhánh đã tồn tại"),
     AU40902(409, "Không ẩn được chi nhánh còn tồn kho hoặc còn đơn chưa kết thúc"),
-
+    AU40903(409, "Không ẩn được chi nhánh hoạt động cuối cùng"),
     // PROD
     PR40001(400, "Dữ liệu sản phẩm/SKU/giá không hợp lệ"),
     PR40401(404, "Không tìm thấy sản phẩm, SKU, danh mục hoặc thương hiệu"),

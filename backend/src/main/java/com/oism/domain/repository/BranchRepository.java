@@ -13,8 +13,10 @@ public interface BranchRepository extends JpaRepository<Branch, UUID> {
     Optional<Branch> findByIdAndTenantId(UUID id, UUID tenantId);
 
     List<Branch> findByTenantIdOrderByNameAsc(UUID tenantId);
-
     List<Branch> findByTenantId(UUID tenantId);
 
     boolean existsByTenantIdAndNameIgnoreCase(UUID tenantId, String name);
+
+    long countByTenantIdAndActiveTrue(UUID tenantId);
+}
 }

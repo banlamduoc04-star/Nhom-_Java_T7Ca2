@@ -128,18 +128,18 @@ public class AuthService {
         return issueTokens(user);
     }
 
-    /** FR-AUTH-02: dang xuat thu hoi refresh token. Idempotent: token la/da thu hoi van tra thanh cong. */
+       /** Nguoi dung tu doi mat khau. Sai mat khau cu -> AU40001 (khong dung 401 de client khong tu refresh). */
     @Transactional
-    public void logout(AuthenticatedUser current, String rawRefreshToken) {
-        refreshTokenRepository.findByTokenHash(hash(rawRefreshToken))
-                .filter(token -> token.getUserId().equals(current.userId()))
-                .ifPresent(token -> {
-                    token.revoke();
-                    refreshTokenRepository.save(token);
-                });
+    public void changePassword(AuthenticatedUser current, String currentPassword, String newPassword) {
+        AppUser user = appUserRepository.findByIdAndTenantId(current.userId(), current.tenantId())
+                .orElseThrow(() -> new BusinessException(ErrorCode.AU40401, "Không tìm thấy người dùng"));
+        if (!passwordEncoder.matches(currentPassword, user.getPasswordHash())) {
+            throw new BusinessException(ErrorCode.AU40001, "Mật khẩu hiện tại không đúng");
+        }
+        user.setPasswordHash(passwordEncoder.encode(newPassword));
+        appUserRepository.save(user);
+        refreshTokenRepository.revokeAllByUserId(user.getId());
     }
-
-    /** GET /me. */
     @Transactional(readOnly = true)
     public UserProfile me(AuthenticatedUser current) {
         AppUser user = appUserRepository.findByIdAndTenantId(current.userId(), current.tenantId())

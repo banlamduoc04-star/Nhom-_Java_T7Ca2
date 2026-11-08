@@ -110,4 +110,11 @@ class RbacIT extends AbstractIntegrationTest {
         assertEquals("AU40902", PATCH(owner, "/api/v1/branches/" + owner.branchId() + "/status",
                 Map.of("active", false), 409).get("errorCode").asText());
     }
+    @Test
+    void cannotHideLastActiveBranch() {
+        Session owner = newTenant();
+        assertEquals("AU40903", PATCH(owner, "/api/v1/branches/" + owner.branchId() + "/status",
+                Map.of("active", false), 409).get("errorCode").asText());
+    }
 }
+
