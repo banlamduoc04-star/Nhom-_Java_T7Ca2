@@ -1,5 +1,6 @@
 import { useCallback, useEffect, useRef, useState, type FormEvent } from 'react'
-import { errorText, logout, lookupBarcode, posCheckout, searchSkus, type CheckoutReceipt, type Me } from './api'
+import { errorText, logout, lookupBarcode, posCheckout, searchSkus, tokenStore, USE_MOCK, type CheckoutReceipt, type Me } from './api'
+import { subscribeToNewOrders } from './realtime'
 import { addToCart, cartTotal, itemCount, looksLikeBarcode, removeLine, setQuantity, type CartLine, type SkuInfo } from './cart'
 
 interface Props {
@@ -23,7 +24,7 @@ export default function SaleScreen({ user, onLogout }: Props) {
   const [cart, setCart] = useState<CartLine[]>([])
   const [notice, setNotice] = useState<Notice | null>(null)
 
-  // Payment states
+  // Payment
   const [payOpen, setPayOpen] = useState(false)
   const [paymentMethod, setPaymentMethod] = useState<'CASH' | 'QR'>('CASH')
   const [cashGiven, setCashGiven] = useState<number>(0)
@@ -33,6 +34,26 @@ export default function SaleScreen({ user, onLogout }: Props) {
   const [receipt, setReceipt] = useState<CheckoutReceipt | null>(null)
 
   const total = cartTotal(cart)
+
+  // Realtime notifications are scoped to the authenticated user's tenant.
+  useEffect(() => {
+    if (USE_MOCK || !user.tenantId || !tokenStore.get()) return
+
+    return subscribeToNewOrders(
+      user.tenantId,
+      () => tokenStore.get()?.accessToken ?? null,
+      (event) => {
+        const amount = typeof event.totalAmount === 'number'
+          ? `${event.totalAmount.toLocaleString('vi-VN')} ₫`
+          : ''
+        setNotice({
+          kind: 'ok',
+          text: `Đơn hàng mới ${event.orderCode ?? ''} ${amount}`.trim(),
+        })
+      },
+      () => setNotice({ kind: 'error', text: 'Kết nối thông báo realtime bị gián đoạn.' }),
+    )
+  }, [user.tenantId])
 
   const add = useCallback((sku: SkuInfo) => {
     setCart((current) => {
@@ -48,9 +69,8 @@ export default function SaleScreen({ user, onLogout }: Props) {
   const submit = async (e: FormEvent) => {
     e.preventDefault()
     const query = text.trim()
-    if (!query) {
-      return
-    }
+    if (!query) return
+
     setBusy(true)
     setNotice(null)
     try {
@@ -92,13 +112,13 @@ export default function SaleScreen({ user, onLogout }: Props) {
     setTimeout(() => cashInputRef.current?.select(), 100)
   }, [cart.length, total])
 
-  const handleCheckout = async () => {
+  const handleCheckout = useCallback(async () => {
     if (!user.branchId) {
       setNotice({ kind: 'error', text: 'Tài khoản chưa được gán chi nhánh để thực hiện thanh toán' })
       return
     }
     if (paymentMethod === 'CASH' && cashGiven < total) {
-      alert('Tiền khách đưa chưa đủ!')
+      setNotice({ kind: 'error', text: 'Tiền khách đưa chưa đủ!' })
       return
     }
 
@@ -113,14 +133,16 @@ export default function SaleScreen({ user, onLogout }: Props) {
       setCart([])
       setPayOpen(false)
       setReceipt(receiptData)
+      setNotice({ kind: 'ok', text: 'Thanh toán thành công!' })
     } catch (err) {
-      alert(`Lỗi thanh toán: ${errorText(err)}`)
+      // Hiển thị lỗi thanh toán
+      setNotice({ kind: 'error', text: `Lỗi thanh toán: ${errorText(err)}` })
     } finally {
       setBusy(false)
     }
-  }
+ }, [user.branchId, paymentMethod, cashGiven, total, cart])
 
-  // Phim tat: F2 tim, F9 thanh toan, Esc huy gio (hoac dong hop thoai)
+  // Phím tắt: F2 tìm, F9 thanh toán, Esc hủy giỏ
   useEffect(() => {
     const onKey = (e: KeyboardEvent) => {
       if (e.key === 'F2') {
@@ -130,7 +152,7 @@ export default function SaleScreen({ user, onLogout }: Props) {
       } else if (e.key === 'F9') {
         e.preventDefault()
         if (payOpen) {
-          handleCheckout()
+          if (!busy) handleCheckout()
         } else if (!receipt) {
           openCheckout()
         }
@@ -148,7 +170,7 @@ export default function SaleScreen({ user, onLogout }: Props) {
     }
     window.addEventListener('keydown', onKey)
     return () => window.removeEventListener('keydown', onKey)
-  }, [cart.length, payOpen, receipt, openCheckout, clearCart])
+ }, [payOpen, receipt, busy, openCheckout, clearCart, handleCheckout])
 
   const changeQuantity = (skuId: string, quantity: number) => {
     const result = setQuantity(cart, skuId, quantity)
@@ -238,7 +260,7 @@ export default function SaleScreen({ user, onLogout }: Props) {
         </section>
       </main>
 
-      {/* Modal thanh toan */}
+      {/* thanh toán */}
       {payOpen && (
         <div className="modal no-print" role="dialog" aria-modal="true" aria-label="Thanh toán">
           <div className="card" style={{ width: 460 }}>
@@ -316,7 +338,7 @@ export default function SaleScreen({ user, onLogout }: Props) {
         </div>
       )}
 
-      {/* Modal hoa don 80mm */}
+      {/* Modal hóa đơn */}
       {receipt && (
         <div className="modal" role="dialog" aria-modal="true" aria-label="Hóa đơn thanh toán">
           <div className="card" style={{ width: 380 }}>
