@@ -1,7 +1,7 @@
 package com.oism.domain.service;
 
-import com.dev.app.infrastructure.entity.LedgerEntryEntity;
-import com.dev.app.infrastructure.repository.LedgerRepository;
+import com.oism.app.infrastructure.entity.LedgerEntryEntity;
+import com.oism.app.infrastructure.repository.LedgerRepository;
 import lombok.RequiredArgsConstructor;
 import org.springframework.data.domain.PageRequest;
 import org.springframework.stereotype.Service;
@@ -30,9 +30,9 @@ public class LedgerService {
         BigDecimal debitAmt = debit != null ? debit : BigDecimal.ZERO;
         BigDecimal creditAmt = credit != null ? credit : BigDecimal.ZERO;
 
-        // 1. Lấy số dư ở giao dịch mới nhất của tài khoản thuộc tenant này
+        // 1. Lấy số dư ở giao dịch mới nhất (ưu tiên id giảm dần để tránh trùng timestamp)
         BigDecimal lastBalance = ledgerRepository
-                .findTopByTenantIdAndAccountIdOrderByCreatedAtDesc(tenantId, accountId)
+                .findTopByTenantIdAndAccountIdOrderByIdDesc(tenantId, accountId)
                 .map(LedgerEntryEntity::getBalanceAfter)
                 .orElse(BigDecimal.ZERO);
 

@@ -1,7 +1,7 @@
 package com.oism.domain.service;
 
-import com.dev.app.infrastructure.entity.InventoryEntity;
-import com.dev.app.infrastructure.repository.InventoryRepository;
+import com.osim.app.infrastructure.entity.InventoryEntity;
+import com.osim.app.infrastructure.repository.InventoryRepository;
 import lombok.RequiredArgsConstructor;
 import org.redisson.api.RLock;
 import org.redisson.api.RedissonClient;
