@@ -9,6 +9,8 @@ export default function BranchesPage() {
   const [loading, setLoading] = useState(false)
   const [modalOpen, setModalOpen] = useState(false)
   const [editingBranch, setEditingBranch] = useState<Branch | null>(null)
+  const [keyword, setKeyword] = useState('')
+  const [statusFilter, setStatusFilter] = useState<'all' | 'active' | 'hidden'>('all')
   const [form] = Form.useForm()
 
   const loadData = async () => {
@@ -57,6 +59,12 @@ export default function BranchesPage() {
     }
   }
 
+  const shown = branches.filter(
+    (b) =>
+      b.name.toLowerCase().includes(keyword.trim().toLowerCase()) &&
+      (statusFilter === 'all' || (statusFilter === 'active') === b.active),
+  )
+
   return (
     <div>
       <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 16 }}>
@@ -74,9 +82,28 @@ export default function BranchesPage() {
         </Button>
       </div>
 
+      <Space style={{ marginBottom: 12 }}>
+        <Input.Search
+          allowClear
+          placeholder="Tìm theo tên chi nhánh"
+          style={{ width: 260 }}
+          onChange={(e) => setKeyword(e.target.value)}
+        />
+        <Select
+          value={statusFilter}
+          onChange={setStatusFilter}
+          style={{ width: 180 }}
+          options={[
+            { value: 'all', label: 'Tất cả trạng thái' },
+            { value: 'active', label: 'Đang hoạt động' },
+            { value: 'hidden', label: 'Đã ẩn' },
+          ]}
+        />
+      </Space>
+
       <Table<Branch>
         loading={loading}
-        dataSource={branches}
+        dataSource={shown}
         rowKey="id"
         columns={[
           { title: 'Tên chi nhánh / Kho', dataIndex: 'name', key: 'name' },

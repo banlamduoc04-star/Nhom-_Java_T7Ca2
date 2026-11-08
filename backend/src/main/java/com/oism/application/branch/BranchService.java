@@ -64,7 +64,10 @@ public class BranchService {
         return BranchView.from(branchRepository.save(branch));
     }
 
-    /** Khong an duoc chi nhanh con ton kho hoac con don chua ket thuc (AU40902). */
+       /**
+     * Khong an duoc chi nhanh con ton kho hoac con don chua ket thuc (AU40902),
+     * va khong an duoc chi nhanh hoat dong cuoi cung cua tenant (AU40903).
+     */
     @Transactional
     public BranchView setActive(UUID tenantId, UUID id, boolean active) {
         Branch branch = find(tenantId, id);
@@ -74,6 +77,9 @@ public class BranchService {
                     tenantId, id, OPEN_ORDER_STATUSES);
             if (hasStock || hasOpenOrders) {
                 throw new BusinessException(ErrorCode.AU40902);
+            }
+            if (branchRepository.countByTenantIdAndActiveTrue(tenantId) <= 1) {
+                throw new BusinessException(ErrorCode.AU40903);
             }
         }
         branch.setActive(active);
