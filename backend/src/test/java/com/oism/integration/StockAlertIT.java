@@ -76,8 +76,13 @@ class StockAlertIT extends AbstractIntegrationTest {
 
         Session b = newTenant();
         assertEquals(0, GET(b, "/api/v1/alerts/stock", 200).size());
-        assertEquals("IV40401", POST(b, "/api/v1/alerts/stock/" + alertId + "/resolve", null, 404)
+        assertEquals("IV40401", PATCH(b, "/api/v1/alerts/stock/" + alertId + "/read", null, 404)
                 .get("errorCode").asText());
+
+        // Danh sach API cua ke hoach: PATCH /alerts/stock/{id}/read -> dong canh bao
+        PATCH(a, "/api/v1/alerts/stock/" + alertId + "/read", null, 204);
+        assertEquals(0, alerts(a, skuId, "OPEN").size());
+        assertEquals(1, alerts(a, skuId, "CLOSED").size());
     }
 
     private String skuWithReorderPoint(Session owner, int reorderPoint) {

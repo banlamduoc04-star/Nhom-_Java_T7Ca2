@@ -1,6 +1,7 @@
 import { useCallback, useEffect, useRef, useState, type FormEvent } from 'react'
 import { errorText, logout, lookupBarcode, posCheckout, searchSkus, USE_MOCK, type CheckoutReceipt, type Me } from './api'
 import { subscribeNewOrders, type OrderCreatedEvent } from './realtime'
+import QrCode from './QrCode'
 import { addToCart, cartTotal, itemCount, looksLikeBarcode, removeLine, setQuantity, type CartLine, type SkuInfo } from './cart'
 
 interface Props {
@@ -32,6 +33,13 @@ export default function SaleScreen({ user, onLogout }: Props) {
 
   // Receipt modal state
   const [receipt, setReceipt] = useState<CheckoutReceipt | null>(null)
+
+  // FR-POS-03: thanh toan xong tu mo hop thoai in hoa don 80 mm (sau khi hoa don da hien tren man hinh)
+  useEffect(() => {
+    if (!receipt) return
+    const timer = setTimeout(() => window.print(), 300)
+    return () => clearTimeout(timer)
+  }, [receipt])
 
   // FR-SIM-02: thong bao don moi cua cua hang (don san, don tay, POS khac)
   const [newOrder, setNewOrder] = useState<OrderCreatedEvent | null>(null)
@@ -317,10 +325,7 @@ export default function SaleScreen({ user, onLogout }: Props) {
               </div>
             ) : (
               <div className="qr-box">
-                <img
-                  src={`https://api.qrserver.com/v1/create-qr-code/?size=160x160&data=OISM_POS_${user.branchId}_${total}`}
-                  alt="Mã QR thanh toán"
-                />
+                <QrCode value={`OISM_POS_${user.branchId}_${total}`} />
                 <p style={{ margin: '8px 0 0', fontWeight: 600 }}>Quét mã QR để chuyển khoản</p>
                 <small className="muted">Thu ngân xác nhận tiền đã vào tài khoản trước khi hoàn tất</small>
               </div>

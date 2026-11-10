@@ -33,7 +33,7 @@ const ENTRIES: Entry[] = [
   { key: '/transfers', label: 'Chuyển kho', icon: <SwapOutlined />, roles: ['OWNER', 'STAFF'] },
   { key: '/stocktakes', label: 'Kiểm kê kho', icon: <AuditOutlined />, roles: ['OWNER', 'STAFF'] },
   { key: '/stock', label: 'Tồn kho & sổ cái', icon: <DatabaseOutlined />, roles: ['OWNER', 'STAFF'] },
-  { key: '/stock-reports', label: 'Báo cáo tồn kho', icon: <BarChartOutlined />, roles: ['OWNER'] },
+  { key: '/stock-reports', label: 'Báo cáo tồn kho', icon: <BarChartOutlined />, roles: ['OWNER', 'STAFF'] },
   { key: '/profit-report', label: 'Báo cáo lợi nhuận', icon: <LineChartOutlined />, roles: ['OWNER'] },
   { key: '/branches', label: 'Chi nhánh / Kho', icon: <ShopOutlined />, roles: ['OWNER'] },
   { key: '/users', label: 'Nhân viên', icon: <UsergroupAddOutlined />, roles: ['OWNER'] },

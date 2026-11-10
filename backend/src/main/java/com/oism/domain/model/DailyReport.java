@@ -2,6 +2,8 @@ package com.oism.domain.model;
 
 import jakarta.persistence.Column;
 import jakarta.persistence.Entity;
+import jakarta.persistence.EnumType;
+import jakarta.persistence.Enumerated;
 import jakarta.persistence.Table;
 import org.hibernate.annotations.Filter;
 
@@ -10,75 +12,76 @@ import java.time.LocalDate;
 import java.util.UUID;
 
 /**
- * Bao cao doanh thu, gia von va loi nhuan chot theo ngay (FR-SIM-03, JC-31).
+ * Bao cao chot ngay (FR-SIM-03; Ke hoach muc 4 bang daily_report): moi dong = 1 chi nhanh x 1 ngay x 1 kenh.
+ * Chi tinh don Confirmed/Completed (nhu FR-REP-01); gia von lay tu order_item.cost_price da chup.
  */
 @Entity
 @Table(name = "daily_report")
 @Filter(name = TenantScopedEntity.TENANT_FILTER, condition = TenantScopedEntity.TENANT_FILTER_CONDITION)
 public class DailyReport extends TenantScopedEntity {
 
+    @Column(name = "branch_id", nullable = false)
+    private UUID branchId;
+
     @Column(name = "report_date", nullable = false)
     private LocalDate reportDate;
 
-    @Column(name = "total_revenue", nullable = false, precision = 15, scale = 2)
-    private BigDecimal totalRevenue = BigDecimal.ZERO;
+    @Enumerated(EnumType.STRING)
+    @Column(name = "channel", nullable = false, length = 20)
+    private OrderChannel channel;
 
-    @Column(name = "total_cogs", nullable = false, precision = 15, scale = 2)
-    private BigDecimal totalCogs = BigDecimal.ZERO;
+    @Column(name = "order_count", nullable = false)
+    private int orderCount;
 
-    @Column(name = "gross_profit", nullable = false, precision = 15, scale = 2)
+    @Column(name = "revenue", nullable = false, precision = 19, scale = 2)
+    private BigDecimal revenue = BigDecimal.ZERO;
+
+    @Column(name = "cogs", nullable = false, precision = 19, scale = 2)
+    private BigDecimal cogs = BigDecimal.ZERO;
+
+    @Column(name = "gross_profit", nullable = false, precision = 19, scale = 2)
     private BigDecimal grossProfit = BigDecimal.ZERO;
-
-    @Column(name = "total_orders", nullable = false)
-    private int totalOrders;
-
-    @Column(name = "completed_orders", nullable = false)
-    private int completedOrders;
-
-    @Column(name = "cancelled_orders", nullable = false)
-    private int cancelledOrders;
 
     protected DailyReport() {
     }
 
-    public DailyReport(UUID tenantId, LocalDate reportDate, BigDecimal totalRevenue, BigDecimal totalCogs,
-                       BigDecimal grossProfit, int totalOrders, int completedOrders, int cancelledOrders) {
+    public DailyReport(UUID tenantId, UUID branchId, LocalDate reportDate, OrderChannel channel,
+                       int orderCount, BigDecimal revenue, BigDecimal cogs) {
         super(tenantId);
+        this.branchId = branchId;
         this.reportDate = reportDate;
-        this.totalRevenue = totalRevenue != null ? totalRevenue : BigDecimal.ZERO;
-        this.totalCogs = totalCogs != null ? totalCogs : BigDecimal.ZERO;
-        this.grossProfit = grossProfit != null ? grossProfit : BigDecimal.ZERO;
-        this.totalOrders = totalOrders;
-        this.completedOrders = completedOrders;
-        this.cancelledOrders = cancelledOrders;
+        this.channel = channel;
+        this.orderCount = orderCount;
+        this.revenue = revenue;
+        this.cogs = cogs;
+        this.grossProfit = revenue.subtract(cogs);
+    }
+
+    public UUID getBranchId() {
+        return branchId;
     }
 
     public LocalDate getReportDate() {
         return reportDate;
     }
 
-    public BigDecimal getTotalRevenue() {
-        return totalRevenue;
+    public OrderChannel getChannel() {
+        return channel;
     }
 
-    public BigDecimal getTotalCogs() {
-        return totalCogs;
+    public int getOrderCount() {
+        return orderCount;
+    }
+
+    public BigDecimal getRevenue() {
+        return revenue;
+    }
+
+    public BigDecimal getCogs() {
+        return cogs;
     }
 
     public BigDecimal getGrossProfit() {
         return grossProfit;
     }
-
-    public int getTotalOrders() {
-        return totalOrders;
-    }
-
-    public int getCompletedOrders() {
-        return completedOrders;
-    }
-
-    public int getCancelledOrders() {
-        return cancelledOrders;
-    }
 }
-

@@ -9,7 +9,8 @@ import {
 } from '@ant-design/icons'
 import type { ColumnsType } from 'antd/es/table'
 import { branchApi, orderApi, skuApi } from '../../api/services'
-import type { Branch, OrderChannel, OrderStatus, OrderView, SkuSearchItem } from '../../api/types'
+import type { Branch, OrderChannel, OrderStatus, OrderView, ShippingSlip, SkuSearchItem } from '../../api/types'
+import { errorText } from '../../api/client'
 
 //  ĐẾM NGƯỢC THỜI GIAN GIỮ HÀNG 
 function ReservedCountdown({ targetDate }: { targetDate: string }) {
@@ -114,8 +115,8 @@ export default function OrdersPage() {
       })
       setOrders(data.content)
       setTotal(data.totalElements)
-    } catch (err: any) {
-      message.error(err.response?.data?.message || 'Không thể tải danh sách đơn hàng')
+    } catch (err) {
+      message.error(errorText(err))
     } finally {
       setLoading(false)
     }
@@ -140,8 +141,8 @@ export default function OrdersPage() {
       }
       if (selectedOrder && selectedOrder.id === orderId) setSelectedOrder(updated)
       loadOrders()
-    } catch (err: any) {
-      message.error(err.response?.data?.message || 'Thao tác thất bại')
+    } catch (err) {
+      message.error(errorText(err))
     }
   }
 
@@ -158,12 +159,20 @@ export default function OrdersPage() {
       setOrderToCancel(null)
       if (selectedOrder && selectedOrder.id === updated.id) setSelectedOrder(updated)
       loadOrders()
-    } catch (err: any) {
-      message.error(err.response?.data?.message || 'Hủy đơn hàng thất bại')
+    } catch (err) {
+      message.error(errorText(err))
     }
   }
 
-  const handlePrintSlip = (order: OrderView) => {
+  // FR-ORD-03: du lieu phieu lay tu GET /orders/{id}/shipping-slip (ten san pham, chi nhanh); moi truong deu escape
+  const handlePrintSlip = async (order: OrderView) => {
+    let slip: ShippingSlip
+    try {
+      slip = await orderApi.shippingSlip(order.id)
+    } catch (err) {
+      message.error(errorText(err))
+      return
+    }
     const printWindow = document.createElement('iframe')
     printWindow.style.position = 'fixed'
     printWindow.style.right = '0'
@@ -176,16 +185,17 @@ export default function OrdersPage() {
     const doc = printWindow.contentWindow?.document
     if (!doc) return
 
-    const safeCode = escapeHtml(order.code)
-    const safeChannel = escapeHtml(order.channel)
-    const safeCustomer = escapeHtml(order.customerName || 'Khách lẻ')
-    const safePhone = escapeHtml(order.customerPhone || '—')
-    const safeAddress = escapeHtml(order.shippingAddress || 'Nhận tại cửa hàng')
+    const safeCode = escapeHtml(slip.orderCode)
+    const safeChannel = escapeHtml(slip.channel)
+    const safeBranch = escapeHtml(slip.branchName || '')
+    const safeCustomer = escapeHtml(slip.customerName || 'Khách lẻ')
+    const safePhone = escapeHtml(slip.customerPhone || '—')
+    const safeAddress = escapeHtml(slip.shippingAddress || 'Nhận tại cửa hàng')
 
-    const itemsHtml = order.items.map((i, idx) => `
+    const itemsHtml = slip.lines.map((i, idx) => `
       <tr>
         <td style="padding: 8px; border-bottom: 1px solid #ddd; text-align: center;">${idx + 1}</td>
-        <td style="padding: 8px; border-bottom: 1px solid #ddd;"><strong>${escapeHtml(i.skuCode)}</strong></td>
+        <td style="padding: 8px; border-bottom: 1px solid #ddd;"><strong>${escapeHtml(i.skuCode)}</strong><br/>${escapeHtml(i.productName)}</td>
         <td style="padding: 8px; border-bottom: 1px solid #ddd; text-align: center;">${i.quantity}</td>
         <td style="padding: 8px; border-bottom: 1px solid #ddd; text-align: right;">${i.unitPrice.toLocaleString('vi-VN')} ₫</td>
         <td style="padding: 8px; border-bottom: 1px solid #ddd; text-align: right;">${i.lineTotal.toLocaleString('vi-VN')} ₫</td>
@@ -213,7 +223,7 @@ export default function OrdersPage() {
             <p>Mã đơn: <strong>${safeCode}</strong></p>
           </div>
           <div class="meta">
-            <p><strong>Kênh:</strong> ${safeChannel} | <strong>Ngày tạo:</strong> ${new Date(order.createdAt).toLocaleString('vi-VN')}</p>
+            <p><strong>Chi nhánh xuất:</strong> ${safeBranch} | <strong>Kênh:</strong> ${safeChannel} | <strong>Ngày tạo:</strong> ${new Date(slip.createdAt).toLocaleString('vi-VN')}</p>
             <p><strong>Khách hàng:</strong> ${safeCustomer} - SĐT: ${safePhone}</p>
             <p><strong>Địa chỉ giao:</strong> ${safeAddress}</p>
           </div>
@@ -223,7 +233,7 @@ export default function OrdersPage() {
             </thead>
             <tbody>${itemsHtml}</tbody>
           </table>
-          <div class="total">Tổng thanh toán: ${order.totalAmount.toLocaleString('vi-VN')} ₫</div>
+          <div class="total">Tổng thanh toán: ${slip.totalAmount.toLocaleString('vi-VN')} ₫</div>
           <div class="footer">
             <div><p>Người lập phiếu</p><small>(Ký, họ tên)</small></div>
             <div><p>Người giao hàng</p><small>(Ký, họ tên)</small></div>
@@ -263,8 +273,8 @@ export default function OrdersPage() {
       setCreateOpen(false)
       createForm.resetFields()
       loadOrders()
-    } catch (err: any) {
-      message.error(err.response?.data?.message || 'Tạo đơn hàng thất bại')
+    } catch (err) {
+      message.error(errorText(err))
     }
   }
 

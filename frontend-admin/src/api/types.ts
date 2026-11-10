@@ -350,16 +350,35 @@ export interface SlowMovingItem {
   daysWithoutSale: number
 }
 
+/** Khop application/report/DailyReportView: 1 dong = chi nhanh x ngay x kenh (bang daily_report). */
 export interface DailyReport {
   id: string
   reportDate: string
-  totalRevenue: number
-  totalCogs: number
+  branchId: string
+  branchName: string
+  channel: OrderChannel
+  orderCount: number
+  revenue: number
+  cogs: number
   grossProfit: number
-  totalOrders: number
-  completedOrders: number
-  cancelledOrders: number
   createdAt: string
+}
+
+/** Khop application/order/ShippingSlipView (GET /orders/{id}/shipping-slip). */
+export interface ShippingSlip {
+  orderId: string
+  orderCode: string
+  channel: OrderChannel
+  externalOrderId: string | null
+  status: OrderStatus
+  branchName: string | null
+  branchAddress: string | null
+  customerName: string | null
+  customerPhone: string | null
+  shippingAddress: string | null
+  createdAt: string
+  totalAmount: number
+  lines: { skuCode: string; productName: string; quantity: number; unitPrice: number; lineTotal: number }[]
 }
 
 export interface UserView {

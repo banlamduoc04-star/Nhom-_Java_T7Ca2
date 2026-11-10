@@ -2,7 +2,7 @@
 
 **Nguồn sự thật:** `docs/ke-hoach/ke-hoach-du-an-oism.md` (gọi tắt là **KH**). Quy ước code: `docs/huong-dan/chuan-cau-hinh-chung.md` (gọi tắt là **Chuẩn**).
 **Nguyên tắc:** code khác KH thì sửa code; tài liệu sprint khác KH thì sửa tài liệu. Chỉ thêm thứ KH không có khi bắt buộc, ghi "(bổ sung)" và cập nhật lại KH.
-**Ngày lập:** 10/11/2026. **Trạng thái:** Giai đoạn 1–2 xong (11/11/2026); giai đoạn 3–5 chưa làm.
+**Ngày lập:** 10/11/2026. **Trạng thái:** Giai đoạn 1–3 xong (11/11/2026); giai đoạn 4–5 chưa làm.
 
 ## 0. Cách làm
 
@@ -14,7 +14,7 @@
 | Vấn đề | Lệch kế hoạch ở đâu | Đề xuất |
 |---|---|---|
 | Kênh `LAZADA` (enum + CHECK trong V7) | KH chỉ có POS/MANUAL/SHOPEE/TIKTOK | Webhook đã chỉ nhận SHOPEE/TIKTOK. Cần nhóm quyết: bỏ LAZADA (V mới) hoặc bổ sung vào KH |
-| Bảng `inventory_items`, `ledger_entries` + `InventoryService`, `LedgerService`, `ReportingService`, `JpaReportRepository` (V7) | `id BIGSERIAL`, `tenant_id VARCHAR`, sổ cái thứ hai song song với `inventory_transaction`; trái mô hình dữ liệu và quyết định kiến trúc 2 của KH | Gỡ bỏ ở giai đoạn 3 (V mới DROP TABLE), giữ một sổ cái duy nhất `InventoryLedgerService` |
+| Bảng `inventory_items`, `ledger_entries` + `InventoryService`, `LedgerService`, `ReportingService`, `JpaReportRepository` (V7) | `id BIGSERIAL`, `tenant_id VARCHAR`, sổ cái thứ hai song song với `inventory_transaction`; trái mô hình dữ liệu và quyết định kiến trúc 2 của KH | **Đã gỡ ở giai đoạn 3** (V10 DROP TABLE; xóa code và 2 test đi kèm) |
 | 3 test tích hợp đặt tên `*Test` nên chạy dưới Surefire và lỗi Docker | Chuẩn mục 3/9: test tích hợp tên `*IT` | **Đã sửa:** đổi tên `FlashSaleIT`, `InventoryEntityConcurrencyIT`, `LedgerQueryPerformanceIT`; sửa tham số đảo trong `FlashSaleIT` |
 - Mỗi mục sửa phải có test: 1 case đúng + 1 case lỗi; API mới có test 2 tenant → 404 (Chuẩn mục 9, NFR-TENANT-01).
 - Kết thúc mỗi giai đoạn: `./mvnw verify` xanh (cần Docker), `npm run build` + `npm test` xanh cho 2 frontend.
@@ -92,6 +92,27 @@ Kiểm chứng: `./mvnw verify` xanh: 100 unit test + 43 test tích hợp. Mới
 | 3.11 | Bỏ `any` trong `StocktakesPage.tsx`, `TransfersPage.tsx`; sửa cảnh báo lint | Chuẩn mục 10 |
 
 Các API **có trong code nhưng KH không có** (`/skus`, `/inventory-transactions/keyset`, `/transfers/{id}/cancel`, `/alerts/stock/count`, `/reports/daily`, `/users/{id}/password`, `/settings`) giữ nguyên, ghi "(bổ sung)" vào Danh sách API của KH.
+
+**Kết quả giai đoạn 3 (11/11/2026):**
+
+| # | Trạng thái | Ghi chú |
+|---|---|---|
+| 3.1 | Xong | `GET /orders/{id}/shipping-slip` (`ShippingSlipService`), có tên sản phẩm và chi nhánh; đơn đã hủy → 409 `OD40901`. Nút "In phiếu" trên Admin lấy dữ liệu từ API này, vẫn escape mọi trường |
+| 3.2 | Xong | `GET /pos/orders/{id}/receipt`: in lại hóa đơn; không phải đơn POS → 404 `OD40401`; Cashier chỉ xem hóa đơn chi nhánh được gán |
+| 3.3 | Xong | `/reports/inventory-value`, `/reports/top-selling`, `/reports/slow-moving` cho Owner + Staff; menu/route Admin mở cho Staff, tab chốt ngày chỉ Owner; Postman đã đổi đường dẫn |
+| 3.4 | Xong | `PATCH /alerts/stock/{id}/read` (204) đóng cảnh báo; bỏ `POST .../resolve` |
+| 3.5 | Xong | `V10__daily_report_theo_ke_hoach.sql`: dựng lại `daily_report` theo KH (chi nhánh × ngày × kênh, unique đúng KH); chỉ tính đơn Confirmed/Completed; chạy lại cùng ngày ghi đè (sửa lỗi cũ xóa rồi chèn trong cùng lần flush gây trùng unique); trả `DailyReportView` thay vì entity |
+| 3.6 | Xong | `validationCode`: `/pos`, `/simulator` → `OD40001`; `/alerts` → `IV40001`; còn lại module AUTH → `AU40001` (13 case kiểm tra) |
+| 3.7 | Xong | `DEFAULT_RESERVE_DURATION` = 30 phút |
+| 3.8 | Không cần sửa | `develop` đã ghi lịch sử từng bước (`null→DRAFT→RESERVED`; POS 4 bước) |
+| 3.9 | Xong | POS tự mở hộp thoại in 300 ms sau khi hóa đơn hiện |
+| 3.10 | Xong | `QrCode.tsx` dùng thư viện `qrcode` sinh ảnh tại chỗ; bỏ `api.qrserver.com` |
+| 3.11 | Xong | Bỏ toàn bộ `any` trong Admin (không chỉ 2 trang): lỗi hiển thị bằng `errorText(err)` như Chuẩn mục 10 |
+| Thêm | Xong | Gỡ `GET /reports/dashboard-summary` (không lọc tenant → lộ doanh thu mọi cửa hàng, số liệu biểu đồ ghi cứng, `@CrossOrigin("*")`, không phân quyền) và sổ cái thứ hai của V7; gỡ bí danh công khai `POST /auth/register-tenant` (Chuẩn 4.4) |
+
+Kiểm chứng: `./mvnw verify` xanh: 113 unit test + 45 test tích hợp (mới: `OrderDocumentsIT` 2, `ReportApiIT` 2, `StockAlertIT` thêm PATCH /read, 13 case mã lỗi validation; bỏ 2 test của sổ cái thứ hai). Admin/POS `build`, `lint`, `test` xanh. Chưa kiểm tra bằng mắt trên trình duyệt.
+
+Còn chờ quyết định: kênh `LAZADA` (mục 0.1) vẫn giữ trong enum/DB vì cần nhóm chọn bỏ hay bổ sung vào KH.
 
 ## Giai đoạn 4 – Phi chức năng và kiểm thử (Sprint 5 trong KH)
 

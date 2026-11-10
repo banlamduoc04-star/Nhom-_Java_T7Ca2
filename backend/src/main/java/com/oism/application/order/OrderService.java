@@ -51,7 +51,7 @@ import jakarta.persistence.criteria.Predicate;
 @Service
 public class OrderService {
 
-    public static final Duration DEFAULT_RESERVE_DURATION = Duration.ofMinutes(15);
+    public static final Duration DEFAULT_RESERVE_DURATION = Duration.ofMinutes(30); // FR-RSE-02: mac dinh 30 phut
 
     private final SalesOrderRepository orderRepository;
     private final OrderItemRepository itemRepository;

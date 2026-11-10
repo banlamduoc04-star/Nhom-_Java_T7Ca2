@@ -2158,7 +2158,7 @@
               }
             ],
             "url": {
-              "raw": "{{baseUrl}}/api/v1/reports/stock/valuation",
+              "raw": "{{baseUrl}}/api/v1/reports/inventory-value",
               "host": [
                 "{{baseUrl}}"
               ],
@@ -2166,8 +2166,7 @@
                 "api",
                 "v1",
                 "reports",
-                "stock",
-                "valuation"
+                "inventory-value"
               ]
             }
           },
@@ -2199,7 +2198,7 @@
               }
             ],
             "url": {
-              "raw": "{{baseUrl}}/api/v1/reports/stock/top-selling?days=30&limit=10",
+              "raw": "{{baseUrl}}/api/v1/reports/top-selling?days=30&limit=10",
               "host": [
                 "{{baseUrl}}"
               ],
@@ -2207,7 +2206,6 @@
                 "api",
                 "v1",
                 "reports",
-                "stock",
                 "top-selling"
               ],
               "query": [
@@ -2249,7 +2247,7 @@
               }
             ],
             "url": {
-              "raw": "{{baseUrl}}/api/v1/reports/stock/slow-moving?days=30",
+              "raw": "{{baseUrl}}/api/v1/reports/slow-moving?days=30",
               "host": [
                 "{{baseUrl}}"
               ],
@@ -2257,7 +2255,6 @@
                 "api",
                 "v1",
                 "reports",
-                "stock",
                 "slow-moving"
               ],
               "query": [

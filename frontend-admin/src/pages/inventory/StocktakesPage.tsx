@@ -6,6 +6,7 @@ import { CheckOutlined, EditOutlined, EyeOutlined, PlusOutlined, SyncOutlined } 
 import type { ColumnsType } from 'antd/es/table'
 import { branchApi, stocktakeApi } from '../../api/services'
 import type { Branch, StocktakeStatus, StocktakeView } from '../../api/types'
+import { errorText } from '../../api/client'
 
 const STATUS_COLOR: Record<StocktakeStatus, string> = {
   OPEN: 'warning',
@@ -60,8 +61,8 @@ export default function StocktakesPage() {
       })
       setStocktakes(data.content)
       setTotal(data.totalElements)
-    } catch (err: any) {
-      message.error(err.response?.data?.message || 'Không thể tải danh sách kiểm kê')
+    } catch (err) {
+      message.error(errorText(err))
     } finally {
       setLoading(false)
     }
@@ -77,7 +78,7 @@ export default function StocktakesPage() {
 
   const branchName = (id: string) => branches.find((b) => b.id === id)?.name || id
 
-  const handleCreate = async (values: any) => {
+  const handleCreate = async (values: { branchId: string; note?: string }) => {
     try {
       await stocktakeApi.create({
         branchId: values.branchId,
@@ -87,8 +88,8 @@ export default function StocktakesPage() {
       setCreateOpen(false)
       createForm.resetFields()
       loadStocktakes()
-    } catch (err: any) {
-      message.error(err.response?.data?.message || 'Tạo đợt kiểm kê thất bại')
+    } catch (err) {
+      message.error(errorText(err))
     }
   }
 
@@ -114,8 +115,8 @@ export default function StocktakesPage() {
       setSelectedStocktake(updated)
       setCountModalOpen(false)
       loadStocktakes()
-    } catch (err: any) {
-      message.error(err.response?.data?.message || 'Lưu số đếm thất bại')
+    } catch (err) {
+      message.error(errorText(err))
     }
   }
 
@@ -125,8 +126,8 @@ export default function StocktakesPage() {
       message.success('Đã phê duyệt đợt kiểm kê (sổ cái tồn kho đã được ghi bút toán điều chỉnh ADJUST)')
       setSelectedStocktake(updated)
       loadStocktakes()
-    } catch (err: any) {
-      message.error(err.response?.data?.message || 'Phê duyệt thất bại')
+    } catch (err) {
+      message.error(errorText(err))
     }
   }
 

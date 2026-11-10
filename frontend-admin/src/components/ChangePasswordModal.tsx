@@ -1,5 +1,6 @@
 import { Form, Input, Modal, message } from 'antd'
 import { authApi } from '../api/services'
+import { errorText } from '../api/client'
 
 interface Props {
   open: boolean
@@ -17,8 +18,8 @@ export default function ChangePasswordModal({ open, onClose, onDone }: Props) {
       message.success('Đổi mật khẩu thành công, vui lòng đăng nhập lại')
       form.resetFields()
       onDone()
-    } catch (e: any) {
-      message.error(e?.response?.data?.message || 'Không đổi được mật khẩu')
+    } catch (e) {
+      message.error(errorText(e))
     }
   }
 

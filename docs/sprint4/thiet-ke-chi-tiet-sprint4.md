@@ -51,7 +51,7 @@ Sprint 4 tập trung vào hoàn thiện vòng đời bán hàng tại quầy (**
 
 ### 2.5 Tác vụ nền định kỳ (M5)
 - `ReservationExpirationJob`: Chạy mỗi 60 giây, quét các đơn `RESERVED` có `reserved_until < NOW()`, tự động hủy đơn và hoàn trả hàng khả dụng.
-- `DailyReportJob`: Chạy mỗi đêm lúc 02:00 UTC, tổng kết doanh thu thuần, giá vốn hàng bán (COGS), lợi nhuận gộp, số lượng đơn theo trạng thái và lưu vào `daily_report`.
+- `DailyReportJob`: Chạy mỗi đêm lúc 02:00 UTC, tổng hợp số đơn, doanh thu, giá vốn (COGS), lợi nhuận gộp của đơn CONFIRMED/COMPLETED theo chi nhánh × kênh vào `daily_report`; chạy lại cùng ngày thì ghi đè.
 
 ---
 
@@ -70,19 +70,21 @@ CREATE TABLE IF NOT EXISTS stock_alert (
     resolved_at TIMESTAMPTZ
 );
 
--- 2. Bảng chốt sổ báo cáo ngày
-CREATE TABLE IF NOT EXISTS daily_report (
-    id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
-    tenant_id UUID NOT NULL REFERENCES tenant(id),
-    report_date DATE NOT NULL,
-    total_revenue NUMERIC(15, 2) NOT NULL DEFAULT 0,
-    total_cogs NUMERIC(15, 2) NOT NULL DEFAULT 0,
-    gross_profit NUMERIC(15, 2) NOT NULL DEFAULT 0,
-    total_orders INT NOT NULL DEFAULT 0,
-    completed_orders INT NOT NULL DEFAULT 0,
-    cancelled_orders INT NOT NULL DEFAULT 0,
-    created_at TIMESTAMPTZ NOT NULL DEFAULT now(),
-    CONSTRAINT uq_daily_report_tenant_date UNIQUE (tenant_id, report_date)
+-- 2. Bảng chốt sổ báo cáo ngày: tạo lại ở V10 theo mô hình dữ liệu của kế hoạch
+--    (1 dòng = chi nhánh × ngày × kênh; chỉ tính đơn CONFIRMED/COMPLETED)
+CREATE TABLE daily_report (
+    id           UUID           PRIMARY KEY,
+    tenant_id    UUID           NOT NULL REFERENCES tenant (id),
+    branch_id    UUID           NOT NULL REFERENCES branch (id),
+    report_date  DATE           NOT NULL,
+    channel      VARCHAR(20)    NOT NULL,
+    order_count  INTEGER        NOT NULL DEFAULT 0,
+    revenue      NUMERIC(19, 2) NOT NULL DEFAULT 0,
+    cogs         NUMERIC(19, 2) NOT NULL DEFAULT 0,
+    gross_profit NUMERIC(19, 2) NOT NULL DEFAULT 0,
+    created_at   TIMESTAMPTZ    NOT NULL DEFAULT now(),
+    updated_at   TIMESTAMPTZ    NOT NULL DEFAULT now(),
+    CONSTRAINT uq_daily_report_tenant_branch_date_channel UNIQUE (tenant_id, branch_id, report_date, channel)
 );
 ```
 
@@ -91,7 +93,7 @@ CREATE TABLE IF NOT EXISTS daily_report (
 ## 4. Giao diện Frontend Admin & POS (M6 & M7)
 - **Admin Portal:**
   - Trang Tổng quan Dashboard: 4 thẻ thống kê doanh thu, lợi nhuận gộp, đơn chờ xử lý, số cảnh báo; danh sách cảnh báo cần xử lý và Top 5 bán chạy.
-  - Trang Báo cáo tồn kho: Định giá tồn kho, Top 20 bán chạy, Hàng tồn chậm, Lịch sử chốt ngày.
+  - Trang Báo cáo tồn kho (Owner, Staff): `GET /reports/inventory-value`, `/reports/top-selling`, `/reports/slow-moving`; tab Lịch sử chốt ngày chỉ Owner.
   - Quản lý Chi nhánh/Kho, Nhân viên và Cài đặt thời hạn giữ hàng.
   - Tích hợp thông báo chuông (Web Audio API) và popup khi có đơn hàng mới từ WebSocket.
 - **POS App:**

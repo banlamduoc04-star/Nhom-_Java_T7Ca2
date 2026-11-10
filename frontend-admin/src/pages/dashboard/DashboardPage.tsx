@@ -54,7 +54,7 @@ export default function DashboardPage() {
 
   const resolveAlert = async (id: string) => {
     try {
-      await alertApi.resolve(id)
+      await alertApi.markRead(id)
       message.success('Đã đóng cảnh báo')
       loadData()
     } catch (err) {

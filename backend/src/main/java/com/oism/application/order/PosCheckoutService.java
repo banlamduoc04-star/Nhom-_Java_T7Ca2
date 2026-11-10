@@ -178,16 +178,7 @@ public class PosCheckoutService {
                 tenantId, order.getId(), order.getCode(), total, OrderChannel.POS.name(), cashierName, Instant.now()));
 
         // 12. Trả về response in hóa đơn
-        List<UUID> prodIds = skus.values().stream().map(Sku::getProductId).distinct().toList();
-        Map<UUID, String> prodNames = productRepository.findByTenantIdAndIdIn(tenantId, prodIds).stream()
-                .collect(Collectors.toMap(Product::getId, Product::getName, (a, b) -> a));
-
-        List<PosCheckoutResponse.PosReceiptLine> receiptItems = items.stream().map(it -> {
-            Sku sku = skus.get(it.getSkuId());
-            String pName = prodNames.getOrDefault(sku.getProductId(), sku.getCode());
-            BigDecimal lineTotal = it.getUnitPrice().multiply(BigDecimal.valueOf(it.getQuantity()));
-            return new PosCheckoutResponse.PosReceiptLine(it.getSkuId(), sku.getCode(), pName, it.getQuantity(), it.getUnitPrice(), lineTotal);
-        }).toList();
+        List<PosCheckoutResponse.PosReceiptLine> receiptItems = receiptLines(tenantId, items, skus);
 
         return new PosCheckoutResponse(
                 order.getId(),
@@ -203,6 +194,47 @@ public class PosCheckoutService {
                 cashierName,
                 receiptItems
         );
+    }
+
+    /**
+     * GET /pos/orders/{id}/receipt (Danh sach API dong POS): du lieu in lai hoa don 80 mm cua don POS.
+     * Khong thay, khac tenant hoac khong phai don POS -> 404 OD40401; Cashier chi xem hoa don cua chi nhanh duoc gan.
+     */
+    @Transactional(readOnly = true)
+    public PosCheckoutResponse receipt(UUID tenantId, UUID userId, UUID orderId) {
+        SalesOrder order = orderRepository.findByIdAndTenantId(orderId, tenantId)
+                .filter(o -> o.getChannel() == OrderChannel.POS)
+                .orElseThrow(() -> new BusinessException(ErrorCode.OD40401, "Không tìm thấy hóa đơn POS"));
+        assertCanSellAt(tenantId, userId, order.getBranchId());
+        Payment payment = paymentRepository.findByTenantIdAndOrderId(tenantId, orderId)
+                .orElseThrow(() -> new BusinessException(ErrorCode.OD40401, "Đơn chưa được thanh toán tại POS"));
+        Branch branch = branchRepository.findByIdAndTenantId(order.getBranchId(), tenantId)
+                .orElseThrow(() -> new BusinessException(ErrorCode.AU40401, "Không tìm thấy chi nhánh"));
+
+        List<OrderItem> items = itemRepository.findByTenantIdAndOrderId(tenantId, orderId);
+        Map<UUID, Sku> skus = skuRepository.findByTenantIdAndIdIn(tenantId,
+                        items.stream().map(OrderItem::getSkuId).distinct().toList()).stream()
+                .collect(Collectors.toMap(Sku::getId, s -> s));
+        String cashierName = order.getCreatedBy() == null ? null
+                : appUserRepository.findByIdAndTenantId(order.getCreatedBy(), tenantId).map(AppUser::getEmail).orElse(null);
+
+        return new PosCheckoutResponse(order.getId(), order.getCode(), order.getStatus(), branch.getId(),
+                branch.getName(), order.getTotalAmount(), payment.getMethod(), payment.getCashReceived(),
+                payment.getChangeAmount(), payment.getCreatedAt(), cashierName, receiptLines(tenantId, items, skus));
+    }
+
+    private List<PosCheckoutResponse.PosReceiptLine> receiptLines(UUID tenantId, List<OrderItem> items, Map<UUID, Sku> skus) {
+        List<UUID> prodIds = skus.values().stream().map(Sku::getProductId).distinct().toList();
+        Map<UUID, String> prodNames = productRepository.findByTenantIdAndIdIn(tenantId, prodIds).stream()
+                .collect(Collectors.toMap(Product::getId, Product::getName, (a, b) -> a));
+        return items.stream().map(it -> {
+            Sku sku = skus.get(it.getSkuId());
+            String skuCode = sku != null ? sku.getCode() : it.getSkuId().toString();
+            String productName = sku != null ? prodNames.getOrDefault(sku.getProductId(), skuCode) : skuCode;
+            BigDecimal lineTotal = it.getUnitPrice().multiply(BigDecimal.valueOf(it.getQuantity()));
+            return new PosCheckoutResponse.PosReceiptLine(it.getSkuId(), skuCode, productName, it.getQuantity(),
+                    it.getUnitPrice(), lineTotal);
+        }).toList();
     }
 
     /** FR-AUTH-05: Cashier chi ban duoc tai chi nhanh duoc gan; Owner ban tai moi chi nhanh cua tenant. */

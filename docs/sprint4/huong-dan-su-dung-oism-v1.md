@@ -33,7 +33,7 @@
   - Hệ thống tự động tính số tiền thừa (tiền thối) cần trả lại cho khách.
 - **Thanh toán Chuyển khoản QR (QR Code):**
   - Bấm chọn tab "📱 Chuyển khoản QR".
-  - Màn hình hiển thị mã QR động chứa thông tin đơn hàng và số tiền.
+  - Màn hình hiển thị mã QR (sinh ngay trên máy, không gửi dữ liệu ra ngoài) chứa thông tin đơn hàng và số tiền.
   - Khách hàng quét mã qua ứng dụng ngân hàng/ví điện tử. Sau khi xác nhận tiền đã vào tài khoản, thu ngân bấm xác nhận.
 - **Hoàn tất và In hóa đơn:**
   - Bấm **"Xác nhận & In bill (F9)"**. Đơn hàng được xử lý tức thì trong 1 giao dịch và xuất hóa đơn chuẩn 80mm.
@@ -65,11 +65,11 @@
 - **Tồn kho & Sổ cái:** Tra cứu số lượng tồn thực tế (`on_hand`), hàng đang giữ (`reserved`) và hàng khả dụng (`available`); tra cứu toàn bộ lịch sử sổ cái chỉ ghi thêm.
 
 ### 4. Báo cáo phân tích kinh doanh
-- **Báo cáo tồn kho & hàng bán:**
+- **Báo cáo tồn kho & hàng bán** (Chủ cửa hàng và Nhân viên; tab chốt sổ ngày chỉ Chủ cửa hàng):
   - *Định giá tồn kho:* Tính tổng giá trị vốn lưu kho theo từng chi nhánh hoặc toàn bộ chuỗi.
   - *Top bán chạy:* Xếp hạng các mặt hàng bán chạy nhất theo số lượng và doanh thu trong 7/30/90 ngày.
   - *Hàng tồn chậm:* Liệt kê các SKU còn tồn đọng trong kho nhưng không phát sinh bất kỳ đơn bán nào trong N ngày qua.
-  - *Chốt sổ ngày:* Xem lịch sử chốt doanh thu, giá vốn, lãi gộp theo từng ngày; có nút chủ động chốt sổ ngay.
+  - *Chốt sổ ngày:* Xem doanh thu, giá vốn, lãi gộp theo từng ngày × chi nhánh × kênh; có nút chủ động chốt sổ ngay.
 - **Báo cáo lợi nhuận:** Phân tích doanh thu, giá vốn COGS và biên lợi nhuận gộp, xuất file báo cáo CSV.
 
 ### 5. Cài đặt hệ thống & Phân quyền

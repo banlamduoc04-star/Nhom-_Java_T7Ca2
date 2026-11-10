@@ -30,7 +30,7 @@ public class AuthController {
         this.authService = authService;
     }
 
-     @PostMapping({"/auth/register", "/auth/register-tenant"})
+    @PostMapping("/auth/register")
     @SecurityRequirements
     @Operation(summary = "Đăng ký cửa hàng (tạo tenant + Owner + chi nhánh mặc định)")
     public ResponseEntity<RegisterResponse> register(@Valid @RequestBody RegisterRequest request) {

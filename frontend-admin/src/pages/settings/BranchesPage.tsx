@@ -3,6 +3,7 @@ import { Button, Form, Input, Modal, Select, Space, Table, Tag, Typography, mess
 import { PlusOutlined } from '@ant-design/icons'
 import { branchAdminApi } from '../../api/services'
 import type { Branch } from '../../api/types'
+import { errorText } from '../../api/client'
 
 export default function BranchesPage() {
   const [branches, setBranches] = useState<Branch[]>([])
@@ -42,10 +43,8 @@ export default function BranchesPage() {
       setModalOpen(false)
       form.resetFields()
       loadData()
-    } catch (e: any) {
-      if (e?.response?.data?.message) {
-        message.error(e.response.data.message)
-      }
+    } catch (e) {
+      message.error(errorText(e))
     }
   }
 
@@ -54,8 +53,8 @@ export default function BranchesPage() {
       await branchAdminApi.setStatus(branch.id, !branch.active)
       message.success(branch.active ? 'Đã ẩn chi nhánh' : 'Đã hiện chi nhánh')
       loadData()
-    } catch (e: any) {
-      message.error(e?.response?.data?.message || 'Không thể thay đổi trạng thái chi nhánh (có thể còn tồn kho hoặc đơn hàng)')
+    } catch (e) {
+      message.error(errorText(e))
     }
   }
 

@@ -13,6 +13,8 @@ import jakarta.validation.constraints.NotEmpty;
 import jakarta.validation.constraints.NotNull;
 import org.springframework.security.access.prepost.PreAuthorize;
 import org.springframework.security.core.annotation.AuthenticationPrincipal;
+import org.springframework.web.bind.annotation.GetMapping;
+import org.springframework.web.bind.annotation.PathVariable;
 import org.springframework.web.bind.annotation.PostMapping;
 import org.springframework.web.bind.annotation.RequestBody;
 import org.springframework.web.bind.annotation.RequestMapping;
@@ -82,5 +84,13 @@ public class PosController {
                 req.note()
         );
         return posCheckoutService.checkout(user.tenantId(), user.userId(), user.email(), cmd);
+    }
+
+    @Operation(summary = "Dữ liệu in lại hóa đơn 80 mm của đơn POS - Cashier (chi nhánh được gán), Owner. "
+            + "Lỗi: 404 OD40401, 403 AU40301")
+    @PreAuthorize("hasAnyRole('OWNER', 'CASHIER')")
+    @GetMapping("/orders/{id}/receipt")
+    public PosCheckoutResponse receipt(@AuthenticationPrincipal AuthenticatedUser user, @PathVariable UUID id) {
+        return posCheckoutService.receipt(user.tenantId(), user.userId(), id);
     }
 }

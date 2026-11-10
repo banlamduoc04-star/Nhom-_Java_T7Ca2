@@ -257,6 +257,15 @@ Tất cả endpoint có tiền tố `/api/v1`, nhận và trả JSON, yêu cầu
 | REP | `GET /reports/profit?from=&to=&branchId=&channel=&skuId=` | Doanh thu, giá vốn, lợi nhuận gộp | Owner |
 | REP | `GET /reports/inventory-value`, `/reports/top-selling`, `/reports/slow-moving` | Tồn kho và tốc độ bán | Owner, Staff |
 | REP | `GET /alerts/stock`; `PATCH /alerts/stock/{id}/read` | Cảnh báo tồn thấp | Owner, Staff |
+| AUTH | `PUT /me/password` (bổ sung) | Đổi mật khẩu của chính mình | Tất cả |
+| AUTH | `PUT /users/{id}/password` (bổ sung) | Owner đặt lại mật khẩu nhân viên (FR-AUTH-05) | Owner |
+| AUTH | `GET, PUT /settings` (bổ sung) | Tên cửa hàng, thời hạn giữ hàng (FR-RSE-02 "Owner cấu hình được") | Owner |
+| PROD | `GET /skus?keyword=` (bổ sung) | Tìm SKU theo tên/mã kèm `available` (POS, chọn SKU khi lập phiếu) | Tất cả |
+| INV | `GET /inventory-transactions/keyset` (bổ sung) | Phân trang keyset sổ cái (NFR-TENANT-02) | Owner, Staff |
+| INV | `GET /purchase-receipts/{id}`, `/transfers/{id}`, `/stocktakes/{id}`; `POST /transfers/{id}/cancel` (bổ sung) | Xem chi tiết chứng từ; hủy phiếu chuyển còn Nháp | Owner, Staff |
+| REP | `GET /reports/profit/export` (bổ sung) | Xuất CSV báo cáo lợi nhuận (FR-REP-01) | Owner |
+| REP | `GET /reports/daily`; `POST /reports/daily/run?date=` (bổ sung) | Xem / chốt lại báo cáo ngày (FR-SIM-03) | Owner |
+| REP | `GET /alerts/stock/count` (bổ sung) | Số cảnh báo đang mở cho badge | Owner, Staff |
 
 ### Bảng mã lỗi
 

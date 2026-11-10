@@ -2,11 +2,15 @@ import { useEffect, useState } from 'react'
 import { Button, Card, Col, Row, Select, Statistic, Table, Tabs, Tag, Typography, message } from 'antd'
 import { SyncOutlined } from '@ant-design/icons'
 import { branchApi, stockReportApi } from '../../api/services'
+import { errorText } from '../../api/client'
+import { useAuth } from '../../auth/AuthContext'
 import type { Branch, DailyReport, SlowMovingItem, TopSellingItem, ValuationItem, ValuationSummary } from '../../api/types'
 
 const money = (v: number) => `${v.toLocaleString('vi-VN')} ₫`
 
 export default function StockReportsPage() {
+  // Chot so ngay (bo sung FR-SIM-03) chi Owner; 3 bao cao ton FR-REP-02 cho Owner + Staff
+  const isOwner = useAuth().hasRole('OWNER')
   const [branches, setBranches] = useState<Branch[]>([])
   const [selectedBranch, setSelectedBranch] = useState<string | undefined>()
 
@@ -93,16 +97,16 @@ export default function StockReportsPage() {
   }, [slowDays])
 
   useEffect(() => {
-    loadDailyReports()
-  }, [])
+    if (isOwner) loadDailyReports()
+  }, [isOwner])
 
   const triggerDaily = async () => {
     try {
       await stockReportApi.triggerDaily()
       message.success('Đã kích hoạt chốt sổ thành công')
       loadDailyReports()
-    } catch {
-      message.error('Lỗi khi chốt sổ')
+    } catch (err) {
+      message.error(errorText(err))
     }
   }
 
@@ -221,6 +225,8 @@ export default function StockReportsPage() {
         </div>
       ),
     },
+
+    ...(isOwner ? [
     {
       key: 'daily',
       label: 'Chốt sổ ngày (Daily Report)',
@@ -228,7 +234,7 @@ export default function StockReportsPage() {
         <div>
           <div style={{ marginBottom: 16, display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
             <Typography.Text type="secondary">
-              Tác vụ nền tự động chốt doanh thu, giá vốn và lợi nhuận mỗi đêm lúc 02:00. Bạn cũng có thể chủ động chốt ngay.
+              Tác vụ nền chốt doanh thu, giá vốn, lợi nhuận gộp (đơn Confirmed/Completed) theo chi nhánh × kênh mỗi đêm lúc 02:00 UTC. Bạn cũng có thể chủ động chốt ngay.
             </Typography.Text>
             <Button type="primary" onClick={triggerDaily}>Chốt sổ hôm qua ngay</Button>
           </div>
@@ -239,11 +245,11 @@ export default function StockReportsPage() {
             rowKey="id"
             columns={[
               { title: 'Ngày chốt', dataIndex: 'reportDate', key: 'reportDate' },
-              { title: 'Tổng đơn hàng', dataIndex: 'totalOrders', key: 'totalOrders', align: 'right' },
-              { title: 'Đơn hoàn tất', dataIndex: 'completedOrders', key: 'completedOrders', align: 'right' },
-              { title: 'Đơn đã hủy', dataIndex: 'cancelledOrders', key: 'cancelledOrders', align: 'right' },
-              { title: 'Tổng doanh thu', dataIndex: 'totalRevenue', key: 'totalRevenue', render: money, align: 'right' },
-              { title: 'Tổng giá vốn (COGS)', dataIndex: 'totalCogs', key: 'totalCogs', render: money, align: 'right' },
+              { title: 'Chi nhánh', dataIndex: 'branchName', key: 'branchName' },
+              { title: 'Kênh', dataIndex: 'channel', key: 'channel', render: (c) => <Tag>{c}</Tag> },
+              { title: 'Số đơn', dataIndex: 'orderCount', key: 'orderCount', align: 'right' },
+              { title: 'Doanh thu', dataIndex: 'revenue', key: 'revenue', render: money, align: 'right' },
+              { title: 'Giá vốn (COGS)', dataIndex: 'cogs', key: 'cogs', render: money, align: 'right' },
               {
                 title: 'Lợi nhuận gộp',
                 dataIndex: 'grossProfit',
@@ -256,6 +262,7 @@ export default function StockReportsPage() {
         </div>
       ),
     },
+    ] : []),
   ]
 
   return (

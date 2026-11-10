@@ -1,6 +1,6 @@
 import axios from 'axios'
 import { API_URL, api, data } from '../client'
-import type { OrderChannel, OrderStatus, OrderView, Page, SimulationResult, WebhookChannel } from '../types'
+import type { OrderChannel, OrderStatus, OrderView, Page, ShippingSlip, SimulationResult, WebhookChannel } from '../types'
 
 export interface CreateOrderBody {
   branchId: string
@@ -21,6 +21,8 @@ export const orderApi = {
   confirm: (id: string) => data(api.post<OrderView>(`/orders/${id}/confirm`)),
   complete: (id: string) => data(api.post<OrderView>(`/orders/${id}/complete`)),
   cancel: (id: string, reason: string) => data(api.post<OrderView>(`/orders/${id}/cancel`, { reason })),
+  /** FR-ORD-03: du lieu in phieu giao hang */
+  shippingSlip: (id: string) => data(api.get<ShippingSlip>(`/orders/${id}/shipping-slip`)),
 }
 
 export const simulatorApi = {

@@ -64,6 +64,7 @@ export const stocktakeApi = {
 export const alertApi = {
   list: (params?: { status?: StockAlertStatus; branchId?: string }) =>
     data(api.get<StockAlert[]>('/alerts/stock', { params })),
-  resolve: (id: string) => data(api.post<{ message: string }>(`/alerts/stock/${id}/resolve`)),
+  /** Danh sach API cua ke hoach: PATCH /alerts/stock/{id}/read -> dong canh bao (CLOSED) */
+  markRead: (id: string) => data(api.patch<void>(`/alerts/stock/${id}/read`)),
   count: () => data(api.get<{ openAlerts: number }>('/alerts/stock/count')),
 }

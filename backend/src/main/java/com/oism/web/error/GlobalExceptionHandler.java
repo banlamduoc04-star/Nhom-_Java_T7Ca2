@@ -91,7 +91,8 @@ public class GlobalExceptionHandler extends ResponseEntityExceptionHandler {
                 || resource.startsWith("products") || resource.startsWith("skus")) {
             return ErrorCode.PR40001.name();
         }
-        if (resource.startsWith("orders") || resource.startsWith("webhooks")) {
+        if (resource.startsWith("orders") || resource.startsWith("webhooks")
+                || resource.startsWith("pos") || resource.startsWith("simulator")) {
             return ErrorCode.OD40001.name();
         }
         if (resource.startsWith("reports") || resource.startsWith("dashboard")) {
@@ -99,9 +100,11 @@ public class GlobalExceptionHandler extends ResponseEntityExceptionHandler {
         }
         if (resource.startsWith("inventory") || resource.startsWith("stock")
                 || resource.startsWith("transfers") || resource.startsWith("stocktakes")
-                || resource.startsWith("suppliers") || resource.startsWith("purchase-receipts")) {
+                || resource.startsWith("suppliers") || resource.startsWith("purchase-receipts")
+                || resource.startsWith("alerts")) {
             return ErrorCode.IV40001.name();
         }
+        // auth, me, users, branches, settings: module AUTH
         return ErrorCode.AU40001.name();
     }
 }
