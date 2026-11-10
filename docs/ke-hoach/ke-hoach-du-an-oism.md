@@ -251,6 +251,7 @@ Tất cả endpoint có tiền tố `/api/v1`, nhận và trả JSON, yêu cầu
 | POS | `POST /pos/checkout` | Tạo đơn + thanh toán một giao dịch | Cashier, Owner |
 | POS | `GET /pos/orders/{id}/receipt` | Dữ liệu in hóa đơn | Cashier, Owner |
 | SIM | `POST /webhooks/{channel}` | Nhận đơn từ sàn (header `X-Api-Key`) | Hệ thống ngoài |
+| SIM | `GET /settings/channel-keys`; `POST /settings/channel-keys/{channel}` (bổ sung) | Xem trạng thái / sinh API key webhook cho SHOPEE, TIKTOK (key chỉ hiện một lần, key cũ hết hiệu lực) | Owner |
 | SIM | `POST /simulator/orders` | Sinh N đơn giả và gửi song song | Owner |
 | SIM | WebSocket `/ws`, kênh `/topic/tenants/{tenantId}/orders` và `/alerts` | Thông báo thời gian thực | Tất cả cùng tenant |
 | REP | `GET /reports/profit?from=&to=&branchId=&channel=&skuId=` | Doanh thu, giá vốn, lợi nhuận gộp | Owner |

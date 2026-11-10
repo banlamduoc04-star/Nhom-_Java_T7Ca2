@@ -21,6 +21,7 @@ import com.oism.application.inventory.StockAlertService;
 import com.oism.domain.event.OrderCreatedEvent;
 import com.oism.domain.exception.BusinessException;
 import com.oism.domain.exception.ErrorCode;
+import com.oism.domain.model.AppUser;
 import com.oism.domain.model.Branch;
 import com.oism.domain.model.CatalogStatus;
 import com.oism.domain.model.OrderChannel;
@@ -30,8 +31,10 @@ import com.oism.domain.model.OrderStatusHistory;
 import com.oism.domain.model.Payment;
 import com.oism.domain.model.PaymentMethod;
 import com.oism.domain.model.Product;
+import com.oism.domain.model.Role;
 import com.oism.domain.model.SalesOrder;
 import com.oism.domain.model.Sku;
+import com.oism.domain.repository.AppUserRepository;
 import com.oism.domain.repository.BranchRepository;
 import com.oism.domain.repository.OrderItemRepository;
 import com.oism.domain.repository.OrderStatusHistoryRepository;
@@ -56,6 +59,7 @@ public class PosCheckoutService {
     private final OrderStatusHistoryRepository historyRepository;
     private final PaymentRepository paymentRepository;
     private final BranchRepository branchRepository;
+    private final AppUserRepository appUserRepository;
     private final SkuRepository skuRepository;
     private final ProductRepository productRepository;
     private final ReservationService reservationService;
@@ -68,6 +72,7 @@ public class PosCheckoutService {
                               OrderStatusHistoryRepository historyRepository,
                               PaymentRepository paymentRepository,
                               BranchRepository branchRepository,
+                              AppUserRepository appUserRepository,
                               SkuRepository skuRepository,
                               ProductRepository productRepository,
                               ReservationService reservationService,
@@ -78,6 +83,7 @@ public class PosCheckoutService {
         this.historyRepository = historyRepository;
         this.paymentRepository = paymentRepository;
         this.branchRepository = branchRepository;
+        this.appUserRepository = appUserRepository;
         this.skuRepository = skuRepository;
         this.productRepository = productRepository;
         this.reservationService = reservationService;
@@ -91,6 +97,7 @@ public class PosCheckoutService {
         Branch branch = branchRepository.findByIdAndTenantId(cmd.branchId(), tenantId)
                 .filter(Branch::isActive)
                 .orElseThrow(() -> new BusinessException(ErrorCode.OD40001, "Chi nhánh không hợp lệ hoặc đã bị khóa"));
+        assertCanSellAt(tenantId, userId, branch.getId());
 
         if (cmd.lines() == null || cmd.lines().isEmpty()) {
             throw new BusinessException(ErrorCode.OD40001, "Giỏ hàng không có sản phẩm");
@@ -210,6 +217,15 @@ public class PosCheckoutService {
                 cashierName,
                 receiptItems
         );
+    }
+
+    /** FR-AUTH-05: Cashier chi ban duoc tai chi nhanh duoc gan; Owner ban tai moi chi nhanh cua tenant. */
+    private void assertCanSellAt(UUID tenantId, UUID userId, UUID branchId) {
+        AppUser seller = appUserRepository.findByIdAndTenantId(userId, tenantId)
+                .orElseThrow(() -> new BusinessException(ErrorCode.AU40401, "Không tìm thấy người bán"));
+        if (seller.getRole() == Role.CASHIER && !branchId.equals(seller.getBranchId())) {
+            throw new BusinessException(ErrorCode.AU40301, "Thu ngân chỉ được bán tại chi nhánh được gán");
+        }
     }
 
     private String newCode(UUID tenantId) {

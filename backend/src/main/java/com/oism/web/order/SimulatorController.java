@@ -36,7 +36,7 @@ import java.util.concurrent.atomic.AtomicInteger;
  */
 @RestController
 @RequestMapping("/api/v1/simulator")
-@PreAuthorize("hasAnyRole('OWNER','STAFF')")
+@PreAuthorize("hasRole('OWNER')")
 @Tag(name = "Simulator")
 public class SimulatorController {
 

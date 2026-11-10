@@ -89,7 +89,7 @@ export default function AppLayout() {
 
     client.onConnect = () => {
       //Đơn hàng mới
-      client.subscribe(`/topic/tenants/${user.tenantId}/orders/new`, (message) => {
+      client.subscribe(`/topic/tenants/${user.tenantId}/orders`, (message) => {
         if (message.body) {
           try {
             const data = JSON.parse(message.body)

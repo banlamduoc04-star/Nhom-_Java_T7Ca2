@@ -1,8 +1,7 @@
-package com.oism.domain.service;
+package com.oism.integration;
 
 import com.oism.domain.model.LedgerEntryEntity;
 import com.oism.domain.repository.LedgerRepository;
-import com.oism.integration.AbstractIntegrationTest;
 import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Test;
 import org.springframework.beans.factory.annotation.Autowired;
@@ -13,7 +12,7 @@ import java.util.List;
 
 import static org.junit.jupiter.api.Assertions.assertTrue;
 
-class LedgerServiceTest extends AbstractIntegrationTest {
+class LedgerQueryPerformanceIT extends AbstractIntegrationTest {
 
     @Autowired
     private LedgerRepository ledgerRepository;

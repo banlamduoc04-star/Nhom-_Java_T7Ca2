@@ -3,13 +3,16 @@ package com.oism.application.order;
 import com.oism.application.inventory.StockAlertService;
 import com.oism.domain.exception.BusinessException;
 import com.oism.domain.exception.ErrorCode;
+import com.oism.domain.model.AppUser;
 import com.oism.domain.model.Branch;
 import com.oism.domain.model.BranchType;
 import com.oism.domain.model.OrderStatus;
 import com.oism.domain.model.PaymentMethod;
 import com.oism.domain.model.Product;
+import com.oism.domain.model.Role;
 import com.oism.domain.model.SalesOrder;
 import com.oism.domain.model.Sku;
+import com.oism.domain.repository.AppUserRepository;
 import com.oism.domain.repository.BranchRepository;
 import com.oism.domain.repository.OrderItemRepository;
 import com.oism.domain.repository.OrderStatusHistoryRepository;
@@ -39,6 +42,7 @@ import static org.junit.jupiter.api.Assertions.assertNotNull;
 import static org.junit.jupiter.api.Assertions.assertThrows;
 import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.Mockito.doThrow;
+import static org.mockito.Mockito.never;
 import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.when;
 
@@ -51,6 +55,7 @@ class PosCheckoutServiceTest {
     @Mock OrderStatusHistoryRepository historyRepository;
     @Mock PaymentRepository paymentRepository;
     @Mock BranchRepository branchRepository;
+    @Mock AppUserRepository appUserRepository;
     @Mock SkuRepository skuRepository;
     @Mock ProductRepository productRepository;
     @Mock ReservationService reservationService;
@@ -69,12 +74,14 @@ class PosCheckoutServiceTest {
     void setup() {
         service = new PosCheckoutService(
                 orderRepository, itemRepository, historyRepository, paymentRepository,
-                branchRepository, skuRepository, productRepository,
+                branchRepository, appUserRepository, skuRepository, productRepository,
                 reservationService, stockAlertService, eventPublisher);
 
         Branch branch = new Branch(tenantId, "Chi nhánh POS", BranchType.STORE);
         ReflectionTestUtils.setField(branch, "id", branchId);
         when(branchRepository.findByIdAndTenantId(branchId, tenantId)).thenReturn(Optional.of(branch));
+        when(appUserRepository.findByIdAndTenantId(userId, tenantId))
+                .thenReturn(Optional.of(user(Role.CASHIER, branchId)));
 
         Product product = new Product(tenantId, null, null, "Áo sơ mi nam", null, false);
         ReflectionTestUtils.setField(product, "id", prodId);
@@ -156,5 +163,37 @@ class PosCheckoutServiceTest {
         assertEquals(BigDecimal.valueOf(200_000), resp.cashReceived());
         assertEquals(BigDecimal.ZERO, resp.changeAmount());
         assertEquals(PaymentMethod.QR, resp.paymentMethod());
+    }
+
+    @Test
+    @DisplayName("FR-AUTH-05: Cashier bán ở chi nhánh khác chi nhánh được gán -> 403 AU40301, không tạo đơn")
+    void cashierCannotSellAtOtherBranch() {
+        when(appUserRepository.findByIdAndTenantId(userId, tenantId))
+                .thenReturn(Optional.of(user(Role.CASHIER, UUID.randomUUID())));
+        PosCheckoutCommand cmd = new PosCheckoutCommand(branchId, List.of(new PosCheckoutCommand.PosLine(skuId, 1)),
+                PaymentMethod.CASH, BigDecimal.valueOf(500_000), null, null, null);
+
+        BusinessException ex = assertThrows(BusinessException.class,
+                () -> service.checkout(tenantId, userId, "Thu ngân 1", cmd));
+
+        assertEquals(ErrorCode.AU40301, ex.getErrorCode());
+        verify(orderRepository, never()).save(any());
+    }
+
+    @Test
+    @DisplayName("FR-AUTH-05: Owner bán được ở mọi chi nhánh của cửa hàng")
+    void ownerCanSellAtAnyBranch() {
+        when(appUserRepository.findByIdAndTenantId(userId, tenantId))
+                .thenReturn(Optional.of(user(Role.OWNER, UUID.randomUUID())));
+        PosCheckoutCommand cmd = new PosCheckoutCommand(branchId, List.of(new PosCheckoutCommand.PosLine(skuId, 1)),
+                PaymentMethod.CASH, BigDecimal.valueOf(500_000), null, null, null);
+
+        PosCheckoutResponse resp = service.checkout(tenantId, userId, "Chủ cửa hàng", cmd);
+
+        assertEquals(OrderStatus.COMPLETED, resp.status());
+    }
+
+    private AppUser user(Role role, UUID assignedBranch) {
+        return new AppUser(tenantId, "nv@oism.vn", null, "hash", "Nhân viên", role, assignedBranch);
     }
 }

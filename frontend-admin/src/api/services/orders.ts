@@ -1,5 +1,6 @@
-import { api, data } from '../client'
-import type { OrderChannel, OrderStatus, OrderView, Page, SimulationResult } from '../types'
+import axios from 'axios'
+import { API_URL, api, data } from '../client'
+import type { OrderChannel, OrderStatus, OrderView, Page, SimulationResult, WebhookChannel } from '../types'
 
 export interface CreateOrderBody {
   branchId: string
@@ -23,8 +24,12 @@ export const orderApi = {
 }
 
 export const simulatorApi = {
-  simulate: (body: { branchId: string; channel: OrderChannel; orderCount: number; items: { skuId: string; quantity: number }[] }) =>
+  simulate: (body: { branchId: string; channel: OrderChannel; skuId: string; quantity: number; orderCount: number }) =>
     data(api.post<SimulationResult>('/simulator/orders', body)),
-  sendWebhook: (channel: string, body: { branchId: string; externalOrderId: string; customerName?: string; customerPhone?: string; shippingAddress?: string; items: { skuId: string; quantity: number }[] }) =>
-    data(api.post<OrderView>(`/webhooks/${channel}`, body)),
+  /**
+   * Goi webhook nhu mot san that (FR-SIM-01): chi gui X-Api-Key, khong gui JWT.
+   * Dung axios rieng de 401 OD40101 (key sai) khong kich hoat lam moi token / dang xuat cua Admin.
+   */
+  sendWebhook: (channel: WebhookChannel, apiKey: string, body: { branchId: string; externalOrderId: string; customerName?: string; customerPhone?: string; shippingAddress?: string; items: { skuId: string; quantity: number }[] }) =>
+    data(axios.post<OrderView>(`${API_URL}/webhooks/${channel.toLowerCase()}`, body, { headers: { 'X-Api-Key': apiKey } })),
 }

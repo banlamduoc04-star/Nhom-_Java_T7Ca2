@@ -75,5 +75,6 @@
 ### 5. Cài đặt hệ thống & Phân quyền
 - **Chi nhánh & Kho:** Thêm mới cửa hàng hoặc kho lưu trữ, ẩn/hiện chi nhánh.
 - **Quản lý nhân viên:** Tạo tài khoản nhân viên (Staff) hoặc thu ngân (Cashier), gán chi nhánh làm việc, khóa tài khoản khi nghỉ việc, đặt lại mật khẩu.
+- **API key webhook sàn:** vào **Cài đặt > API key webhook sàn**, bấm **Sinh key** cho Shopee hoặc TikTok Shop. Key chỉ hiện **một lần**, hãy sao chép ngay và cấu hình ở phía sàn (header `X-Api-Key`). Sinh lại key thì key cũ hết hiệu lực. Màn **Giả lập & Webhook** cũng cần nhập key này để gửi đơn thử.
 - **Cài đặt thời hạn giữ hàng:** Cấu hình số phút giữ hàng tối đa cho các đơn online trước khi hệ thống tự động hủy đơn và nhả tồn kho (mặc định 30 phút).
 

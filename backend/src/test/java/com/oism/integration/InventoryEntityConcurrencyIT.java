@@ -1,9 +1,8 @@
-package com.oism.domain.service;
+package com.oism.integration;
 
 import com.oism.application.inventory.InventoryService;
 import com.oism.domain.model.InventoryEntity;
 import com.oism.domain.repository.InventoryRepository;
-import com.oism.integration.AbstractIntegrationTest;
 import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Test;
 import org.springframework.beans.factory.annotation.Autowired;
@@ -15,7 +14,7 @@ import java.util.concurrent.Executors;
 
 import static org.junit.jupiter.api.Assertions.assertEquals;
 
-class InventoryServiceTest extends AbstractIntegrationTest {
+class InventoryEntityConcurrencyIT extends AbstractIntegrationTest {
 
     @Autowired
     private InventoryService inventoryService;

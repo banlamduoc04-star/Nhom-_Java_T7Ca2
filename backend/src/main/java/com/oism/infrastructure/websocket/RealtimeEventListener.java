@@ -21,7 +21,7 @@ public class RealtimeEventListener {
 
     @TransactionalEventListener(phase = TransactionPhase.AFTER_COMMIT, fallbackExecution = true)
     public void onOrderCreated(OrderCreatedEvent event) {
-        String topic = "/topic/tenants/" + event.tenantId() + "/orders/new";
+        String topic = "/topic/tenants/" + event.tenantId() + "/orders";
         messagingTemplate.convertAndSend(topic, event);
     }
 

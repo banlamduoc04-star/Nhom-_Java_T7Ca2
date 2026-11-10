@@ -13,16 +13,15 @@ Sprint 4 tập trung vào hoàn thiện vòng đời bán hàng tại quầy (**
 ## 2. Kiến trúc & Công nghệ bổ sung
 
 ### 2.1 WebSocket STOMP (M2)
-- **Endpoint kết nối:** `/ws` (hỗ trợ SockJS fallback).
-- **Cơ chế xác thực:** Intercept frame `CONNECT` của STOMP, trích xuất token `Authorization: Bearer <token>` hoặc header `token`, giải mã JWT qua `JwtService` và gán `UsernamePasswordAuthenticationToken`.
+- **Endpoint kết nối:** `/ws` (STOMP qua WebSocket thuần; origin lấy từ `OISM_CORS_ORIGINS`).
+- **Cơ chế xác thực (`TenantChannelInterceptor`):** frame `CONNECT` bắt buộc có `Authorization: Bearer <JWT>` hợp lệ, nếu không bị từ chối (client nhận frame ERROR). `SUBSCRIBE` chỉ được vào `/topic/tenants/{tenantId của token}/...`; nghe kênh tenant khác bị từ chối. Client không được `SEND`.
 - **Kênh thông báo theo Tenant:**
-  - `/topic/tenants/{tenantId}/orders/new`: Đơn hàng mới từ POS, Admin hoặc Webhook sàn.
+  - `/topic/tenants/{tenantId}/orders`: Đơn hàng mới (đúng kênh trong Danh sách API của kế hoạch).
   - `/topic/tenants/{tenantId}/alerts`: Cảnh báo tồn kho thấp hoặc phục hồi.
-  - `/topic/tenants/{tenantId}/events`: Sự kiện tổng quát.
 - **Sự kiện giao dịch:** Sử dụng `@TransactionalEventListener(phase = TransactionPhase.AFTER_COMMIT, fallbackExecution = true)` đảm bảo chỉ phát tin sau khi cơ sở dữ liệu đã commit thành công.
 
 ### 2.2 Thanh toán POS trong một giao dịch (M5)
-- **Endpoint:** `POST /api/v1/pos/checkout` (`OWNER`, `STAFF`, `CASHIER`).
+- **Endpoint:** `POST /api/v1/pos/checkout` (`CASHIER`, `OWNER` theo kế hoạch). Cashier chỉ bán tại chi nhánh được gán, sai → 403 `AU40301` (FR-AUTH-05).
 - **Nguyên tử hóa:**
   1. Validate chi nhánh & trạng thái SKU.
   2. Tạo đơn bán hàng `POS` (`DRAFT`).

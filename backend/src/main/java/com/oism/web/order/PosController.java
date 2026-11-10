@@ -66,8 +66,8 @@ public class PosController {
             Integer quantity
     ) {}
 
-    @Operation(summary = "Thanh toán đơn hàng POS trong 1 giao dịch (Cashier, Staff, Owner)")
-    @PreAuthorize("hasAnyRole('OWNER', 'STAFF', 'CASHIER')")
+    @Operation(summary = "Thanh toán POS trong 1 giao dịch - Cashier (chi nhánh được gán), Owner. Lỗi: 403 AU40301, 409 IV40901, 400 OD40001")
+    @PreAuthorize("hasAnyRole('OWNER', 'CASHIER')")
     @PostMapping("/checkout")
     public PosCheckoutResponse checkout(
             @AuthenticationPrincipal AuthenticatedUser user,

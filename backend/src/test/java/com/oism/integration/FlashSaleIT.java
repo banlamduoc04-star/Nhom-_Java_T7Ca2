@@ -24,7 +24,7 @@ import java.util.concurrent.atomic.AtomicReference;
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertNotNull;
 
-class FlashSaleTest extends AbstractIntegrationTest {
+class FlashSaleIT extends AbstractIntegrationTest {
 
     @Autowired
     OrderService orderService;
@@ -97,7 +97,7 @@ class FlashSaleTest extends AbstractIntegrationTest {
         assertEquals(0, stockReserved.get("available").asInt(), "Hàng khả dụng cuối phải = 0, không âm");
 
         assertNotNull(createdOrder.get());
-        orderService.confirm(tenantId, createdOrder.get().id(), userId);
+        orderService.confirm(tenantId, userId, createdOrder.get().id());
 
         JsonNode stockFinal = GET(s, "/api/v1/stock?skuId=" + skuId, 200).get("content").get(0);
         assertEquals(0, stockFinal.get("onHand").asInt(), "Tồn kho cuối phải = 0 sau khi xuất hàng");

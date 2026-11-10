@@ -243,13 +243,32 @@ export interface ProfitReportView {
   bySku: ProfitBySku[]
 }
 
+/** Khop SimulatorController.SimulationResult. */
 export interface SimulationResult {
-  requested: number
+  total: number
   successful: number
   failed: number
-  durationMs: number
+  /** errorCode -> so don loi, vi du { IV40901: 49 } */
+  errorCounts: Record<string, number>
   successfulOrderCodes: string[]
-  errors: string[]
+  durationMs: number
+}
+
+/** San nhan webhook theo ke hoach (channel_credential.channel). */
+export type WebhookChannel = 'SHOPEE' | 'TIKTOK'
+
+/** Khop ChannelCredentialService.ChannelKeyView: khong bao gio chua key. */
+export interface ChannelKeyView {
+  channel: WebhookChannel
+  configured: boolean
+  createdAt: string | null
+}
+
+/** Khop ChannelCredentialService.IssuedKey: key tho chi tra ve mot lan. */
+export interface IssuedChannelKey {
+  channel: WebhookChannel
+  apiKey: string
+  createdAt: string
 }
 
 
