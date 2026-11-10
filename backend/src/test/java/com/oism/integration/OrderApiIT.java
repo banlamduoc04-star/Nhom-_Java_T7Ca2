@@ -70,7 +70,8 @@ class OrderApiIT extends AbstractIntegrationTest {
                 .get("totalElements").asInt());
         assertEquals(0, GET(s, "/api/v1/orders?status=RESERVED", 200).get("totalElements").asInt());
         assertEquals(0, GET(s, "/api/v1/orders?channel=SHOPEE", 200).get("totalElements").asInt());
-        assertEquals(0, GET(s, "/api/v1/orders?channel=LAZADA", 200).get("totalElements").asInt());
+        // Ke hoach chi co POS/MANUAL/SHOPEE/TIKTOK: kenh khac la tham so khong hop le
+        assertEquals("OD40001", GET(s, "/api/v1/orders?channel=LAZADA", 400).get("errorCode").asText());
         assertEquals(0, GET(s, "/api/v1/orders?channel=TIKTOK", 200).get("totalElements").asInt());
         assertEquals(0, GET(s, "/api/v1/orders?to=2000-01-01T00:00:00Z", 200).get("totalElements").asInt());
         assertEquals(3, GET(s, "/api/v1/orders?from=2000-01-01T00:00:00Z", 200).get("totalElements").asInt());

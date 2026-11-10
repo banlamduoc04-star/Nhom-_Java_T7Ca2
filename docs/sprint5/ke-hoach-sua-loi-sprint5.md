@@ -13,7 +13,7 @@
 
 | Vấn đề | Lệch kế hoạch ở đâu | Đề xuất |
 |---|---|---|
-| Kênh `LAZADA` (enum + CHECK trong V7) | KH chỉ có POS/MANUAL/SHOPEE/TIKTOK | Webhook đã chỉ nhận SHOPEE/TIKTOK. Cần nhóm quyết: bỏ LAZADA (V mới) hoặc bổ sung vào KH |
+| Kênh `LAZADA` (enum + CHECK trong V7) | KH chỉ có POS/MANUAL/SHOPEE/TIKTOK | **Đã bỏ (quyết định 11/11/2026):** `V11__bo_kenh_lazada.sql` khôi phục CHECK theo KH, đơn LAZADA cũ chuyển về MANUAL; gỡ khỏi enum, seeder, Admin |
 | Bảng `inventory_items`, `ledger_entries` + `InventoryService`, `LedgerService`, `ReportingService`, `JpaReportRepository` (V7) | `id BIGSERIAL`, `tenant_id VARCHAR`, sổ cái thứ hai song song với `inventory_transaction`; trái mô hình dữ liệu và quyết định kiến trúc 2 của KH | **Đã gỡ ở giai đoạn 3** (V10 DROP TABLE; xóa code và 2 test đi kèm) |
 | 3 test tích hợp đặt tên `*Test` nên chạy dưới Surefire và lỗi Docker | Chuẩn mục 3/9: test tích hợp tên `*IT` | **Đã sửa:** đổi tên `FlashSaleIT`, `InventoryEntityConcurrencyIT`, `LedgerQueryPerformanceIT`; sửa tham số đảo trong `FlashSaleIT` |
 - Mỗi mục sửa phải có test: 1 case đúng + 1 case lỗi; API mới có test 2 tenant → 404 (Chuẩn mục 9, NFR-TENANT-01).
@@ -112,7 +112,7 @@ Các API **có trong code nhưng KH không có** (`/skus`, `/inventory-transacti
 
 Kiểm chứng: `./mvnw verify` xanh: 113 unit test + 45 test tích hợp (mới: `OrderDocumentsIT` 2, `ReportApiIT` 2, `StockAlertIT` thêm PATCH /read, 13 case mã lỗi validation; bỏ 2 test của sổ cái thứ hai). Admin/POS `build`, `lint`, `test` xanh. Chưa kiểm tra bằng mắt trên trình duyệt.
 
-Còn chờ quyết định: kênh `LAZADA` (mục 0.1) vẫn giữ trong enum/DB vì cần nhóm chọn bỏ hay bổ sung vào KH.
+Kênh `LAZADA`: đã bỏ theo quyết định của nhóm (xem mục 0.1, migration V11).
 
 ## Giai đoạn 4 – Phi chức năng và kiểm thử (Sprint 5 trong KH)
 

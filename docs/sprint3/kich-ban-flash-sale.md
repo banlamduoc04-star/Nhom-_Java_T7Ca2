@@ -7,7 +7,7 @@
 ---
 
 ## 1. Bối cảnh bài toán
-Trong sự kiện Flash Sale trên sàn Thương mại điện tử (Shopee, Lazada, TikTok Shop), hàng trăm đơn hàng có thể đổ về hệ thống trong cùng một giây.
+Trong sự kiện Flash Sale trên sàn Thương mại điện tử (Shopee, TikTok Shop), hàng trăm đơn hàng có thể đổ về hệ thống trong cùng một giây.
 Rủi ro chí mạng thường gặp:
 1. **Oversell (Bán âm kho):** Kho chỉ còn 10 cái nhưng 20 khách hàng đặt cùng lúc và đều thanh toán thành công -> Cửa hàng bị phạt vi phạm hợp đồng sàn TMĐT vì không giao được hàng.
 2. **Deadlock (Tắc nghẽn cơ sở dữ liệu):** Luồng 1 giữ khóa SKU A và chờ SKU B, trong khi Luồng 2 giữ khóa SKU B và chờ SKU A -> Cơ sở dữ liệu bị tê liệt và sinh ngoại lệ `DeadlockLoserDataAccessException`.
@@ -52,7 +52,7 @@ Nếu bất kỳ SKU nào trong đơn không đủ số lượng khả dụng (`
 - **Tồn kho đang giữ (Reserved):** 0
 - **Tồn kho khả dụng (Available):** 10
 - **Tải giả lập:**
-  - 25 đơn hàng đồng thời từ sàn Shopee và Lazada.
+  - 25 đơn hàng đồng thời từ sàn Shopee và TikTok Shop.
   - Mỗi đơn hàng mua 1 sản phẩm.
   - Thời gian phát sinh đồng thời (Concurrency Burst).
 

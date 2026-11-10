@@ -355,7 +355,7 @@ export default function OrdersPage() {
           <Select placeholder="Trạng thái" allowClear style={{ width: 200 }} value={statusFilter} onChange={setStatusFilter}
             options={Object.entries(STATUS_LABEL).map(([value, label]) => ({ value, label }))} />
           <Select placeholder="Kênh" allowClear style={{ width: 160 }} value={channelFilter} onChange={setChannelFilter}
-            options={['MANUAL', 'POS', 'SHOPEE', 'LAZADA', 'TIKTOK'].map((v) => ({ value: v, label: v }))} />
+            options={['MANUAL', 'POS', 'SHOPEE', 'TIKTOK'].map((v) => ({ value: v, label: v }))} />
           <Select placeholder="Chi nhánh" allowClear style={{ width: 200 }} value={branchFilter} onChange={setBranchFilter}
             options={branches.map((b) => ({ value: b.id, label: b.name }))} />
         </Space>

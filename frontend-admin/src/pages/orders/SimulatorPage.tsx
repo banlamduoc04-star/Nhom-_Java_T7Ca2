@@ -12,7 +12,7 @@ import type { Branch, OrderView, SimulationResult, SkuSearchItem, WebhookChannel
 
 interface SimulateFormValues {
   branchId: string
-  channel: 'SHOPEE' | 'LAZADA' | 'TIKTOK'
+  channel: WebhookChannel
   skuId: string
   orderCount: number
   quantityPerOrder: number
@@ -138,7 +138,6 @@ export default function SimulatorPage() {
                 <Select
                   options={[
                     { value: 'SHOPEE', label: 'Shopee' },
-                    { value: 'LAZADA', label: 'Lazada' },
                     { value: 'TIKTOK', label: 'TikTok Shop' },
                   ]}
                 />

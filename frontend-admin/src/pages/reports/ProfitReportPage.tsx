@@ -237,7 +237,6 @@ export default function ProfitReportPage() {
               { value: 'MANUAL', label: 'Thủ công' },
               { value: 'POS', label: 'Tại quầy (POS)' },
               { value: 'SHOPEE', label: 'Shopee' },
-              { value: 'LAZADA', label: 'Lazada' },
               { value: 'TIKTOK', label: 'TikTok Shop' },
             ]}
           />

@@ -141,7 +141,8 @@ export interface LedgerRow {
 }
 
 export type OrderStatus = 'DRAFT' | 'RESERVED' | 'CONFIRMED' | 'COMPLETED' | 'CANCELLED'
-export type OrderChannel = 'MANUAL' | 'POS' | 'SHOPEE' | 'LAZADA' | 'TIKTOK'
+/** Ke hoach muc 4: orders.channel */
+export type OrderChannel = 'MANUAL' | 'POS' | 'SHOPEE' | 'TIKTOK'
 
 export interface OrderItemView {
   skuId: string

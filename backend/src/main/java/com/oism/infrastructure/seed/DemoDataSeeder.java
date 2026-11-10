@@ -163,10 +163,10 @@ public class DemoDataSeeder implements ApplicationRunner {
                 "TIKTOK-VN-99412", "Pham Minh Chau", "0987654322", "12 Nguyen Thi Minh Khai, Quan 3, TP HCM",
                 List.of(new OrderLine(allSkus.get(4).id(), 2)));
 
-        OrderView lazadaOrder1 = orderService.createAndReserve(tenantId, reg.userId(), mainBranch, OrderChannel.LAZADA,
-                "LAZADA-VN-77101", "Vo Thi Mai", "0933112233", "88 Hai Ba Trung, Quan 1, TP HCM",
+        OrderView shopeeOrder2 = orderService.createAndReserve(tenantId, reg.userId(), mainBranch, OrderChannel.SHOPEE,
+                "SHOPEE-VN-77101", "Vo Thi Mai", "0933112233", "88 Hai Ba Trung, Quan 1, TP HCM",
                 List.of(new OrderLine(allSkus.get(5).id(), 1)));
-        orderService.confirm(tenantId, lazadaOrder1.id(), reg.userId());
+        orderService.confirm(tenantId, shopeeOrder2.id(), reg.userId());
     }
 
     private void seedTenantB() {

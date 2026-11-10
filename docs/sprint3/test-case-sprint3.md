@@ -27,4 +27,4 @@
 | **TC-RPT-01** | Tính toán báo cáo lợi nhuận | Đơn bán 2 cái giá bán 150k, giá vốn chụp 100k | Gọi GET `/api/v1/reports/profit` | Revenue=300k, COGS=200k, GrossProfit=100k, Margin=33.3% | **PASS** |
 | **TC-RPT-02** | Xuất báo cáo CSV | Đã có dữ liệu bán hàng | Gọi GET `/api/v1/reports/profit/export` | Trả về stream text/csv UTF-8 đầy đủ các cột | **PASS** |
 | **TC-SIM-01** | Mô phỏng Flash Sale 20 luồng | Tồn Available=10. 20 đơn x 1 | Gọi POST `/api/v1/simulator/orders` | 10 đơn thành công, 10 đơn bị từ chối; Tồn kho cuối cùng = 0 (không âm) | **PASS** |
-| **TC-WHK-01** | Nhận Webhook sàn TMĐT | Payload từ Shopee, Lazada | Gọi POST `/api/v1/webhooks/shopee` | Đơn hàng được tạo và giữ hàng tự động, chống trùng lặp externalOrderId | **PASS** |
+| **TC-WHK-01** | Nhận Webhook sàn TMĐT | Payload từ Shopee, TikTok Shop | Gọi POST `/api/v1/webhooks/shopee` | Đơn hàng được tạo và giữ hàng tự động, chống trùng lặp externalOrderId | **PASS** |
