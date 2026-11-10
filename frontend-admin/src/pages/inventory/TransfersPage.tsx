@@ -133,7 +133,6 @@ export default function TransfersPage() {
   const handleCreate = async (values: {
     fromBranchId: string
     toBranchId: string
-    note?: string
     items: { skuId: string; quantity: number }[]
   }) => {
     if (values.fromBranchId === values.toBranchId) {
@@ -144,7 +143,6 @@ export default function TransfersPage() {
       await transferApi.create({
         fromBranchId: values.fromBranchId,
         toBranchId: values.toBranchId,
-        note: values.note,
         items: values.items.map((i) => ({ skuId: i.skuId, quantity: i.quantity })),
       })
       message.success('Đã tạo phiếu chuyển kho thành công')
@@ -184,12 +182,6 @@ export default function TransfersPage() {
       dataIndex: 'status',
       key: 'status',
       render: (st: TransferStatus) => <Tag color={STATUS_COLOR[st]}>{STATUS_LABEL[st]}</Tag>,
-    },
-    {
-      title: 'Ghi chú',
-      dataIndex: 'note',
-      key: 'note',
-      render: (n) => n || '—',
     },
     {
       title: 'Ngày tạo',
@@ -300,14 +292,7 @@ export default function TransfersPage() {
               <Col span={12}><p><strong>Kho nguồn (xuất):</strong> {branchName(selectedTransfer.fromBranchId)}</p></Col>
               <Col span={12}><p><strong>Kho đích (nhập):</strong> {branchName(selectedTransfer.toBranchId)}</p></Col>
               <Col span={12}><p><strong>Trạng thái:</strong> <Tag color={STATUS_COLOR[selectedTransfer.status]}>{STATUS_LABEL[selectedTransfer.status]}</Tag></p></Col>
-              <Col span={12}><p><strong>Ghi chú:</strong> {selectedTransfer.note || '—'}</p></Col>
               <Col span={12}><p><strong>Thời gian tạo:</strong> {new Date(selectedTransfer.createdAt).toLocaleString('vi-VN')}</p></Col>
-              {selectedTransfer.dispatchedAt && (
-                <Col span={12}><p><strong>Thời gian xuất:</strong> {new Date(selectedTransfer.dispatchedAt).toLocaleString('vi-VN')}</p></Col>
-              )}
-              {selectedTransfer.receivedAt && (
-                <Col span={12}><p><strong>Thời gian nhận:</strong> {new Date(selectedTransfer.receivedAt).toLocaleString('vi-VN')}</p></Col>
-              )}
             </Row>
 
             <Typography.Title level={5} style={{ marginTop: 16 }}>Danh sách hàng chuyển</Typography.Title>
@@ -364,10 +349,6 @@ export default function TransfersPage() {
               </Form.Item>
             </Col>
           </Row>
-
-          <Form.Item name="note" label="Ghi chú">
-            <Input placeholder="Ví dụ: Chuyển hàng bổ sung cho chi nhánh..." />
-          </Form.Item>
 
           <Typography.Text strong>Mặt hàng cần chuyển</Typography.Text>
           <Form.List name="items" initialValue={[{ skuId: undefined, quantity: 1 }]}>

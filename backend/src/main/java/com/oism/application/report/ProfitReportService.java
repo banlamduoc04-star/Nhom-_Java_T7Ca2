@@ -4,16 +4,13 @@ import com.oism.domain.exception.BusinessException;
 import com.oism.domain.exception.ErrorCode;
 import com.oism.domain.model.Branch;
 import com.oism.domain.model.OrderChannel;
-import com.oism.domain.model.OrderItem;
-import com.oism.domain.model.OrderStatus;
-import com.oism.domain.model.SalesOrder;
+import com.oism.domain.model.Product;
 import com.oism.domain.model.Sku;
 import com.oism.domain.repository.BranchRepository;
-import com.oism.domain.repository.OrderItemRepository;
-import com.oism.domain.repository.SalesOrderRepository;
+import com.oism.domain.repository.ProductRepository;
+import com.oism.domain.repository.SalesAnalyticsRepository;
+import com.oism.domain.repository.SalesAnalyticsRepository.SalesFilter;
 import com.oism.domain.repository.SkuRepository;
-import jakarta.persistence.criteria.Predicate;
-import org.springframework.data.jpa.domain.Specification;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
@@ -21,174 +18,137 @@ import java.math.BigDecimal;
 import java.math.RoundingMode;
 import java.nio.charset.StandardCharsets;
 import java.time.Instant;
-import java.util.ArrayList;
 import java.util.List;
 import java.util.Map;
-import java.util.Set;
 import java.util.UUID;
+import java.util.function.Function;
 import java.util.stream.Collectors;
 
-
+/**
+ * Bao cao doanh thu va loi nhuan gop (FR-REP-01): doanh thu thuan, tong gia von (tu order_item.cost_price),
+ * loi nhuan gop = doanh thu - gia von. Chi tinh don Confirmed/Completed; loc ngay, chi nhanh, kenh, SKU; xuat CSV.
+ * So lieu tong hop trong CSDL (SalesAnalyticsRepository) nen chay duoc voi 100.000 don (NFR-PERF-01).
+ */
 @Service
 public class ProfitReportService {
 
-    private static final Set<OrderStatus> PROFIT_STATUSES = Set.of(OrderStatus.CONFIRMED, OrderStatus.COMPLETED);
-
-    private final SalesOrderRepository orderRepository;
-    private final OrderItemRepository orderItemRepository;
+    private final SalesAnalyticsRepository salesAnalytics;
     private final SkuRepository skuRepository;
+    private final ProductRepository productRepository;
     private final BranchRepository branchRepository;
 
-    public ProfitReportService(SalesOrderRepository orderRepository,
-                               OrderItemRepository orderItemRepository,
+    public ProfitReportService(SalesAnalyticsRepository salesAnalytics,
                                SkuRepository skuRepository,
+                               ProductRepository productRepository,
                                BranchRepository branchRepository) {
-        this.orderRepository = orderRepository;
-        this.orderItemRepository = orderItemRepository;
+        this.salesAnalytics = salesAnalytics;
         this.skuRepository = skuRepository;
+        this.productRepository = productRepository;
         this.branchRepository = branchRepository;
     }
 
-    public record ProfitRow(
-            String orderCode,
-            UUID branchId,
-            String branchName,
-            OrderChannel channel,
-            UUID skuId,
-            String skuCode,
-            int quantity,
-            BigDecimal unitPrice,
-            BigDecimal costPrice,
-            BigDecimal revenue,
-            BigDecimal totalCost,
-            BigDecimal grossProfit,
-            BigDecimal marginPercent,
-            Instant orderDate) {
+    /** grossMargin la ty le (0.3333 = 33,33%), lam tron 4 chu so. */
+    public record ProfitSummary(BigDecimal totalRevenue, BigDecimal totalCogs, BigDecimal grossProfit,
+                                BigDecimal grossMargin, long totalOrders, long totalQuantity) {
     }
 
-    public record ProfitSummary(
-            BigDecimal totalRevenue,
-            BigDecimal totalCost,
-            BigDecimal totalGrossProfit,
-            BigDecimal grossMarginPercent,
-            int totalOrders,
-            int totalQuantity,
-            List<ProfitRow> rows) {
+    public record ProfitBySku(UUID skuId, String skuCode, String productName, long quantitySold,
+                              BigDecimal revenue, BigDecimal cogs, BigDecimal grossProfit, BigDecimal grossMargin) {
+    }
+
+    public record ProfitReportView(ProfitSummary summary, List<ProfitBySku> bySku) {
     }
 
     @Transactional(readOnly = true)
-    public ProfitSummary getProfitReport(UUID tenantId, Instant from, Instant to, UUID branchId, OrderChannel channel, UUID skuId) {
+    public ProfitReportView getProfitReport(UUID tenantId, Instant from, Instant to, UUID branchId,
+                                            OrderChannel channel, UUID skuId) {
+        SalesFilter filter = filter(from, to, branchId, channel, skuId);
+        SalesAnalyticsRepository.SalesTotals totals = salesAnalytics.totals(tenantId, filter);
+        List<SalesAnalyticsRepository.SkuSales> bySku = salesAnalytics.bySku(tenantId, filter);
+
+        Map<UUID, Sku> skus = skuRepository.findByTenantIdAndIdIn(tenantId,
+                bySku.stream().map(SalesAnalyticsRepository.SkuSales::skuId).toList()).stream()
+                .collect(Collectors.toMap(Sku::getId, Function.identity()));
+        Map<UUID, String> productNames = productRepository.findByTenantIdAndIdIn(tenantId,
+                skus.values().stream().map(Sku::getProductId).distinct().toList()).stream()
+                .collect(Collectors.toMap(Product::getId, Product::getName, (a, b) -> a));
+
+        List<ProfitBySku> rows = bySku.stream().map(s -> {
+            Sku sku = skus.get(s.skuId());
+            String code = sku != null ? sku.getCode() : s.skuId().toString();
+            String name = sku != null ? productNames.getOrDefault(sku.getProductId(), code) : code;
+            BigDecimal revenue = money(s.revenue());
+            BigDecimal cogs = money(s.cogs());
+            return new ProfitBySku(s.skuId(), code, name, s.quantity(), revenue, cogs, revenue.subtract(cogs),
+                    margin(revenue, cogs));
+        }).toList();
+
+        BigDecimal revenue = money(totals.revenue());
+        BigDecimal cogs = money(totals.cogs());
+        return new ProfitReportView(new ProfitSummary(revenue, cogs, revenue.subtract(cogs), margin(revenue, cogs),
+                totals.orderCount(), totals.quantity()), rows);
+    }
+
+    /** CSV chi tiet tung dong hang (FR-REP-01 "xuat CSV"); so dung dau cham thap phan, khong phu thuoc locale. */
+    @Transactional(readOnly = true)
+    public byte[] exportCsv(UUID tenantId, Instant from, Instant to, UUID branchId, OrderChannel channel, UUID skuId) {
+        SalesFilter filter = filter(from, to, branchId, channel, skuId);
+        List<SalesAnalyticsRepository.SalesLine> lines = salesAnalytics.lines(tenantId, filter);
+        Map<UUID, String> branchNames = branchRepository.findByTenantId(tenantId).stream()
+                .collect(Collectors.toMap(Branch::getId, Branch::getName, (a, b) -> a));
+        Map<UUID, String> skuCodes = skuRepository.findByTenantIdAndIdIn(tenantId,
+                lines.stream().map(SalesAnalyticsRepository.SalesLine::skuId).distinct().toList()).stream()
+                .collect(Collectors.toMap(Sku::getId, Sku::getCode));
+
+        StringBuilder sb = new StringBuilder("﻿");
+        sb.append("Mã đơn,Ngày,Chi nhánh,Kênh,Mã SKU,Số lượng,Đơn giá,Giá vốn,Doanh thu,Tổng giá vốn,Lợi nhuận gộp,Tỷ suất LN (%)\n");
+        BigDecimal totalRevenue = BigDecimal.ZERO;
+        BigDecimal totalCogs = BigDecimal.ZERO;
+        long totalQty = 0;
+        for (SalesAnalyticsRepository.SalesLine l : lines) {
+            BigDecimal qty = BigDecimal.valueOf(l.quantity());
+            BigDecimal cost = l.costPrice() != null ? l.costPrice() : BigDecimal.ZERO;
+            BigDecimal revenue = money(l.unitPrice().multiply(qty));
+            BigDecimal cogs = money(cost.multiply(qty));
+            totalRevenue = totalRevenue.add(revenue);
+            totalCogs = totalCogs.add(cogs);
+            totalQty += l.quantity();
+            sb.append(csv(l.orderCode())).append(',').append(l.orderDate()).append(',')
+                    .append(csv(branchNames.getOrDefault(l.branchId(), ""))).append(',').append(l.channel()).append(',')
+                    .append(csv(skuCodes.getOrDefault(l.skuId(), l.skuId().toString()))).append(',')
+                    .append(l.quantity()).append(',').append(money(l.unitPrice()).toPlainString()).append(',')
+                    .append(money(cost).toPlainString()).append(',').append(revenue.toPlainString()).append(',')
+                    .append(cogs.toPlainString()).append(',').append(revenue.subtract(cogs).toPlainString()).append(',')
+                    .append(percent(revenue, cogs)).append('\n');
+        }
+        sb.append("\"TỔNG CỘNG\",,,,,").append(totalQty).append(",,,").append(totalRevenue.toPlainString()).append(',')
+                .append(totalCogs.toPlainString()).append(',').append(totalRevenue.subtract(totalCogs).toPlainString())
+                .append(',').append(percent(totalRevenue, totalCogs)).append('\n');
+        return sb.toString().getBytes(StandardCharsets.UTF_8);
+    }
+
+    private static SalesFilter filter(Instant from, Instant to, UUID branchId, OrderChannel channel, UUID skuId) {
         if (from != null && to != null && from.isAfter(to)) {
             throw new BusinessException(ErrorCode.RP40001, "Khoảng thời gian không hợp lệ: 'from' phải trước hoặc bằng 'to'");
         }
-        Specification<SalesOrder> spec = (root, query, cb) -> {
-            List<Predicate> ps = new ArrayList<>();
-            ps.add(cb.equal(root.get("tenantId"), tenantId));
-            ps.add(root.get("status").in(PROFIT_STATUSES));
-            if (branchId != null) {
-                ps.add(cb.equal(root.get("branchId"), branchId));
-            }
-            if (channel != null) {
-                ps.add(cb.equal(root.get("channel"), channel));
-            }
-            if (from != null) {
-                ps.add(cb.greaterThanOrEqualTo(root.get("createdAt"), from));
-            }
-            if (to != null) {
-                ps.add(cb.lessThan(root.get("createdAt"), to));
-            }
-            return cb.and(ps.toArray(new Predicate[0]));
-        };
-
-        List<SalesOrder> orders = orderRepository.findAll(spec);
-        if (orders.isEmpty()) {
-            return new ProfitSummary(BigDecimal.ZERO, BigDecimal.ZERO, BigDecimal.ZERO, BigDecimal.ZERO, 0, 0, List.of());
-        }
-
-        Map<UUID, SalesOrder> orderMap = orders.stream().collect(Collectors.toMap(SalesOrder::getId, o -> o));
-        List<UUID> orderIds = new ArrayList<>(orderMap.keySet());
-
-        List<OrderItem> items = orderItemRepository.findByTenantIdAndOrderIdIn(tenantId, orderIds);
-        if (skuId != null) {
-            items = items.stream().filter(i -> skuId.equals(i.getSkuId())).toList();
-        }
-
-        Map<UUID, String> skuCodes = skuRepository.findByTenantIdAndIdIn(tenantId,
-                items.stream().map(OrderItem::getSkuId).distinct().toList()).stream()
-                .collect(Collectors.toMap(Sku::getId, Sku::getCode));
-
-        Map<UUID, String> branchNames = branchRepository.findByTenantId(tenantId).stream()
-                .collect(Collectors.toMap(Branch::getId, Branch::getName));
-
-        BigDecimal totalRevenue = BigDecimal.ZERO;
-        BigDecimal totalCost = BigDecimal.ZERO;
-        int totalQty = 0;
-        List<ProfitRow> rows = new ArrayList<>();
-
-        for (OrderItem item : items) {
-            SalesOrder o = orderMap.get(item.getOrderId());
-            if (o == null) continue;
-
-            BigDecimal unitPrice = item.getUnitPrice();
-            BigDecimal costPrice = item.getCostPrice() != null ? item.getCostPrice() : BigDecimal.ZERO;
-            int qty = item.getQuantity();
-
-            BigDecimal revenue = unitPrice.multiply(BigDecimal.valueOf(qty));
-            BigDecimal cost = costPrice.multiply(BigDecimal.valueOf(qty));
-            BigDecimal profit = revenue.subtract(cost);
-            BigDecimal margin = revenue.compareTo(BigDecimal.ZERO) > 0
-                    ? profit.multiply(BigDecimal.valueOf(100)).divide(revenue, 2, RoundingMode.HALF_UP)
-                    : BigDecimal.ZERO;
-
-            totalRevenue = totalRevenue.add(revenue);
-            totalCost = totalCost.add(cost);
-            totalQty += qty;
-
-            rows.add(new ProfitRow(
-                    o.getCode(),
-                    o.getBranchId(),
-                    branchNames.getOrDefault(o.getBranchId(), o.getBranchId().toString()),
-                    o.getChannel(),
-                    item.getSkuId(),
-                    skuCodes.getOrDefault(item.getSkuId(), item.getSkuId().toString()),
-                    qty,
-                    unitPrice,
-                    costPrice,
-                    revenue,
-                    cost,
-                    profit,
-                    margin,
-                    o.getCreatedAt()
-            ));
-        }
-
-        BigDecimal totalGrossProfit = totalRevenue.subtract(totalCost);
-        BigDecimal totalMargin = totalRevenue.compareTo(BigDecimal.ZERO) > 0
-                ? totalGrossProfit.multiply(BigDecimal.valueOf(100)).divide(totalRevenue, 2, RoundingMode.HALF_UP)
-                : BigDecimal.ZERO;
-
-        int totalOrdersCount = (int) rows.stream().map(ProfitRow::orderCode).distinct().count();
-
-        return new ProfitSummary(totalRevenue, totalCost, totalGrossProfit, totalMargin, totalOrdersCount, totalQty, rows);
+        return new SalesFilter(from, to, branchId, channel, skuId);
     }
 
-    @Transactional(readOnly = true)
-    public byte[] exportCsv(UUID tenantId, Instant from, Instant to, UUID branchId, OrderChannel channel, UUID skuId) {
-        ProfitSummary summary = getProfitReport(tenantId, from, to, branchId, channel, skuId);
-        StringBuilder sb = new StringBuilder();
-        
-        sb.append('\ufeff');
-        sb.append("Mã đơn,Chi nhánh,Kênh,Mã SKU,Số lượng,Đơn giá,Giá vốn,Doanh thu,Tổng giá vốn,Lợi nhuận gộp,Tỷ suất LN (%)\n");
+    private static BigDecimal money(BigDecimal v) {
+        return (v != null ? v : BigDecimal.ZERO).setScale(2, RoundingMode.HALF_UP);
+    }
 
-        for (ProfitRow r : summary.rows()) {
-            sb.append(String.format("\"%s\",\"%s\",\"%s\",\"%s\",%d,%.2f,%.2f,%.2f,%.2f,%.2f,%.2f\n",
-                    r.orderCode(), r.branchName(), r.channel(), r.skuCode(), r.quantity(),
-                    r.unitPrice(), r.costPrice(), r.revenue(), r.totalCost(), r.grossProfit(), r.marginPercent()));
-        }
+    private static BigDecimal margin(BigDecimal revenue, BigDecimal cogs) {
+        return revenue.signum() > 0
+                ? revenue.subtract(cogs).divide(revenue, 4, RoundingMode.HALF_UP)
+                : BigDecimal.ZERO.setScale(4);
+    }
 
-        sb.append(String.format("\n\"TỔNG CỘNG\",\"\",\"\",\"\",%d,\"\",\"\",%.2f,%.2f,%.2f,%.2f\n",
-                summary.totalQuantity(), summary.totalRevenue(), summary.totalCost(), summary.totalGrossProfit(), summary.grossMarginPercent()));
+    private static String percent(BigDecimal revenue, BigDecimal cogs) {
+        return margin(revenue, cogs).movePointRight(2).setScale(2, RoundingMode.HALF_UP).toPlainString();
+    }
 
-        return sb.toString().getBytes(StandardCharsets.UTF_8);
+    private static String csv(String value) {
+        return "\"" + value.replace("\"", "\"\"") + "\"";
     }
 }

@@ -34,7 +34,7 @@
             },
             "body": {
               "mode": "raw",
-              "raw": "{\n  \"storeName\": \"Shop M3 Fashion\",\n  \"fullName\": \"Nguyen Van M3\",\n  \"email\": \"owner_m3_{{$timestamp}}@oism.vn\",\n  \"phone\": \"0901234567\",\n  \"password\": \"Password123@\"\n}"
+              "raw": "{\n  \"storeName\": \"Shop M3 Fashion\",\n  \"fullName\": \"Nguyen Van M3\",\n  \"email\": \"{{m3Email}}\",\n  \"phone\": \"{{m3Phone}}\",\n  \"password\": \"Password123@\"\n}"
             }
           },
           "event": [
@@ -56,6 +56,18 @@
                   "});"
                 ],
                 "type": "text/javascript"
+              }
+            },
+            {
+              "listen": "prerequest",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "// Moi lan chay dung email/so dien thoai rieng; buoc dang nhap dung lai cung bien",
+                  "var ts = Date.now().toString();",
+                  "pm.collectionVariables.set('m3Email', 'owner_m3_' + ts + '@oism.vn');",
+                  "pm.collectionVariables.set('m3Phone', '09' + ts.slice(-8));"
+                ]
               }
             }
           ]
@@ -84,7 +96,7 @@
             },
             "body": {
               "mode": "raw",
-              "raw": "{\n  \"identifier\": \"owner_m3@oism.vn\",\n  \"password\": \"Password123@\"\n}"
+              "raw": "{\n  \"identifier\": \"{{m3Email}}\",\n  \"password\": \"Password123@\"\n}"
             }
           },
           "event": [
@@ -140,7 +152,7 @@
             },
             "body": {
               "mode": "raw",
-              "raw": "{\n  \"identifier\": \"owner_m3@oism.vn\",\n  \"password\": \"WrongPassword123\"\n}"
+              "raw": "{\n  \"identifier\": \"{{m3Email}}\",\n  \"password\": \"WrongPassword123\"\n}"
             }
           },
           "event": [
@@ -954,14 +966,28 @@
           },
           "event": [
             {
+              "listen": "prerequest",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "// Tao mot thuong hieu chua co san pham de xoa (PR40902 chi ap dung khi con san pham)",
+                  "pm.sendRequest({",
+                  "  url: pm.environment.get('baseUrl') + '/api/v1/brands', method: 'POST',",
+                  "  header: { 'Content-Type': 'application/json', 'Authorization': 'Bearer ' + pm.environment.get('accessToken') },",
+                  "  body: { mode: 'raw', raw: JSON.stringify({ name: 'Brand Rong ' + Date.now() }) }",
+                  "}, function (err, res) { pm.environment.set('emptyBrandId', res.json().id); });"
+                ]
+              }
+            },
+            {
               "listen": "test",
               "script": {
+                "type": "text/javascript",
                 "exec": [
                   "pm.test(\"Status is 204 No Content\", function () {",
-                  "    pm.expect([200, 204]).to.include(pm.response.code);",
+                  "    pm.response.to.have.status(204);",
                   "});"
-                ],
-                "type": "text/javascript"
+                ]
               }
             }
           ]
@@ -2041,15 +2067,16 @@
             {
               "listen": "test",
               "script": {
+                "type": "text/javascript",
                 "exec": [
                   "pm.test(\"Status is 200 OK\", function () {",
                   "    pm.response.to.have.status(200);",
                   "    var json = pm.response.json();",
-                  "    pm.expect(json.totalRevenue).to.be.at.least(0);",
-                  "    pm.expect(json.totalGrossProfit).to.be.defined;",
+                  "    pm.expect(json.summary.totalRevenue).to.be.at.least(0);",
+                  "    pm.expect(json.summary.grossProfit).to.eql(json.summary.totalRevenue - json.summary.totalCogs);",
+                  "    pm.expect(json.bySku).to.be.an('array');",
                   "});"
-                ],
-                "type": "text/javascript"
+                ]
               }
             }
           ]
@@ -2174,14 +2201,14 @@
             {
               "listen": "test",
               "script": {
+                "type": "text/javascript",
                 "exec": [
                   "pm.test(\"Status is 200 OK\", function () {",
                   "    pm.response.to.have.status(200);",
                   "    var json = pm.response.json();",
-                  "    pm.expect(json.totalValuation).to.be.at.least(0);",
+                  "    pm.expect(json.totalInventoryValue).to.be.at.least(0);",
                   "});"
-                ],
-                "type": "text/javascript"
+                ]
               }
             }
           ]
@@ -2320,6 +2347,16 @@
           ]
         }
       ]
+    }
+  ],
+  "variable": [
+    {
+      "key": "m3Email",
+      "value": ""
+    },
+    {
+      "key": "m3Phone",
+      "value": ""
     }
   ]
 }

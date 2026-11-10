@@ -188,8 +188,11 @@ Giá trị cố định theo kế hoạch: access token 60 phút, refresh token 
 | Kiến trúc | ArchUnit | `architecture/ArchitectureTest` | `./mvnw test` |
 | Tích hợp API | `@SpringBootTest` + Testcontainers PostgreSQL + MockMvc | `integration/*IT` | `./mvnw verify` (cần Docker) |
 | Đồng thời | `ExecutorService` (mẫu: `InventoryIT.concurrentOutNeverOversells`) | `integration/` | `./mvnw verify` |
-| Coverage | JaCoCo | — | `./mvnw -Pcoverage verify` |
+| Coverage | JaCoCo, cổng ≥ 80% cho `InventoryLedgerService`, `ReservationService`, `CostCalculator` (CI đỏ khi dưới ngưỡng) | — | `./mvnw -Pcoverage verify` |
 | Frontend unit | Vitest | `src/*.test.ts` | `npm test` |
+| API (bản Docker) | Postman + newman | `postman/*.postman_collection.json` | `npx newman run <collection> -e postman/OISM_Local.postman_environment.json` |
+| E2E (bản Docker) | Playwright, Admin + POS ở 3 kích thước | `e2e/tests/*.spec.ts` | `cd e2e && npm ci && npx playwright install chromium && npm test` |
+| Hiệu năng | SQL sinh dữ liệu + `EXPLAIN ANALYZE` | `backend/scripts/` | Xem `docs/sprint5/ket-qua-kiem-thu-giai-doan-4.md` |
 
 Quy định:
 

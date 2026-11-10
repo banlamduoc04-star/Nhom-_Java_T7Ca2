@@ -1,0 +1,12 @@
+{
+  "name": "oism-e2e",
+  "private": true,
+  "description": "Kiem thu E2E Admin + POS bang Playwright (Ke hoach Sprint 5, M7 viec 1; NFR-USA-02)",
+  "scripts": {
+    "test": "playwright test",
+    "report": "playwright show-report"
+  },
+  "devDependencies": {
+    "@playwright/test": "1.49.1"
+  }
+}

@@ -2,7 +2,7 @@
 
 **Nguồn sự thật:** `docs/ke-hoach/ke-hoach-du-an-oism.md` (gọi tắt là **KH**). Quy ước code: `docs/huong-dan/chuan-cau-hinh-chung.md` (gọi tắt là **Chuẩn**).
 **Nguyên tắc:** code khác KH thì sửa code; tài liệu sprint khác KH thì sửa tài liệu. Chỉ thêm thứ KH không có khi bắt buộc, ghi "(bổ sung)" và cập nhật lại KH.
-**Ngày lập:** 10/11/2026. **Trạng thái:** Giai đoạn 1–3 xong (11/11/2026); giai đoạn 4–5 chưa làm.
+**Ngày lập:** 10/11/2026. **Trạng thái:** Giai đoạn 1–4 xong (11/11/2026); giai đoạn 5 chưa làm.
 
 ## 0. Cách làm
 
@@ -128,6 +128,23 @@ Kênh `LAZADA`: đã bỏ theo quyết định của nhóm (xem mục 0.1, migra
 | 4.8 | Playwright E2E (đăng nhập, tạo sản phẩm, nhập kho, bán POS, đơn sàn) ở 3 kích thước màn hình; đo p95 tìm/quét < 200 ms | NFR-USA-02, NFR-PERF-01; Sprint 5 M7 |
 | 4.9 | Đo báo cáo < 2 s và sổ cái 1 triệu dòng (`EXPLAIN ANALYZE`) bằng `scripts/generate_1m_ledger.sql` | NFR-PERF-01, NFR-TENANT-02 |
 
+
+**Kết quả giai đoạn 4 (11/11/2026)** – chi tiết và số liệu: [ket-qua-kiem-thu-giai-doan-4.md](ket-qua-kiem-thu-giai-doan-4.md)
+
+| # | Trạng thái | Ghi chú |
+|---|---|---|
+| 4.1 | Xong | Actuator chỉ mở `health`; `HEALTHCHECK` backend (curl) + compose; frontend chờ backend `service_healthy`; sửa healthcheck frontend `localhost` → `127.0.0.1` (trước đó luôn `unhealthy`) |
+| 4.2 | Xong | JaCoCo `check` ≥ 80% dòng cho sổ cái, giữ hàng, giá vốn trong profile `coverage` (CI dùng) – đã thấy cổng chặn khi `CostCalculator` 53%; xóa hàm chết của sổ cái thứ hai |
+| 4.3 | Xong | Build arg `VITE_API_URL` |
+| 4.4 | Xong | Đã làm ở GĐ1–3 (`WebhookIT`, `RealtimeIT`, `StockAlertIT`, `PosCheckoutIT`, `OrderDocumentsIT`) + `HealthIT`, `LedgerKeysetIT` |
+| 4.5 | Xong | `FlashSaleIT` thêm case qua API Simulator (50 đơn / 1 cái) |
+| 4.6 | Xong | `TransactionRollbackIT`: lỗi ở bước Giữ, Trừ (trigger CSDL), ghi thanh toán, và đơn sàn → không dữ liệu dở |
+| 4.7 | Xong | Thêm `OISM_Core_Auth_Inv_Ord_Pos_Sim` (100 request); sửa collection M3; newman 149/149 request, 244/244 assertion |
+| 4.8 | Xong | `e2e/` Playwright 1.49.1: 7/7 (Admin + POS 3 kích thước); p95 tìm/quét đo qua API: 38/33 ms |
+| 4.9 | Xong | Viết lại `generate_1m_ledger.sql`, thêm `generate_100k_orders.sql`, `explain_ledger_queries.sql`; mọi chỉ tiêu NFR-PERF-01/NFR-TENANT-02 đạt |
+| Thêm | Xong | Sửa keyset 500 + V12 index; báo cáo tổng hợp trong CSDL (trước đó 500 khi > 65.535 đơn); báo cáo lợi nhuận đúng dạng Admin dùng; Admin kiểm kê gửi sai tên trường (số đếm thành 0) |
+
+Chưa làm: đưa Postman/E2E vào CI (cần dựng Docker trong CI); đo tải song song bằng JMeter.
 ## Giai đoạn 5 – Sửa tài liệu cho khớp KH và kết quả thật
 
 | Tài liệu | Sửa |

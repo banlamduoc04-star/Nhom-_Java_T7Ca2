@@ -2,18 +2,12 @@ package com.oism.application.report;
 
 import com.oism.domain.model.Branch;
 import com.oism.domain.model.DailyReport;
-import com.oism.domain.model.OrderChannel;
-import com.oism.domain.model.OrderItem;
-import com.oism.domain.model.OrderStatus;
-import com.oism.domain.model.SalesOrder;
 import com.oism.domain.repository.BranchRepository;
 import com.oism.domain.repository.DailyReportRepository;
-import com.oism.domain.repository.OrderItemRepository;
-import com.oism.domain.repository.SalesOrderRepository;
+import com.oism.domain.repository.SalesAnalyticsRepository;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
-import java.math.BigDecimal;
 import java.math.RoundingMode;
 import java.time.Instant;
 import java.time.LocalDate;
@@ -22,8 +16,6 @@ import java.util.ArrayList;
 import java.util.Comparator;
 import java.util.List;
 import java.util.Map;
-import java.util.Set;
-import java.util.TreeMap;
 import java.util.UUID;
 import java.util.stream.Collectors;
 
@@ -35,20 +27,15 @@ import java.util.stream.Collectors;
 @Service
 public class DailyReportService {
 
-    private static final Set<OrderStatus> REVENUE_STATUSES = Set.of(OrderStatus.CONFIRMED, OrderStatus.COMPLETED);
-
     private final DailyReportRepository dailyReportRepository;
-    private final SalesOrderRepository salesOrderRepository;
-    private final OrderItemRepository orderItemRepository;
+    private final SalesAnalyticsRepository salesAnalytics;
     private final BranchRepository branchRepository;
 
     public DailyReportService(DailyReportRepository dailyReportRepository,
-                              SalesOrderRepository salesOrderRepository,
-                              OrderItemRepository orderItemRepository,
+                              SalesAnalyticsRepository salesAnalytics,
                               BranchRepository branchRepository) {
         this.dailyReportRepository = dailyReportRepository;
-        this.salesOrderRepository = salesOrderRepository;
-        this.orderItemRepository = orderItemRepository;
+        this.salesAnalytics = salesAnalytics;
         this.branchRepository = branchRepository;
     }
 
@@ -58,36 +45,16 @@ public class DailyReportService {
         Instant start = date.atStartOfDay().toInstant(ZoneOffset.UTC);
         Instant end = date.plusDays(1).atStartOfDay().toInstant(ZoneOffset.UTC);
 
-        List<SalesOrder> orders = salesOrderRepository.findAll((root, query, cb) -> cb.and(
-                cb.equal(root.get("tenantId"), tenantId),
-                root.get("status").in(REVENUE_STATUSES),
-                cb.greaterThanOrEqualTo(root.get("createdAt"), start),
-                cb.lessThan(root.get("createdAt"), end)));
-
-        Map<UUID, List<OrderItem>> itemsByOrder = orders.isEmpty() ? Map.of()
-                : orderItemRepository.findByTenantIdAndOrderIdIn(tenantId, orders.stream().map(SalesOrder::getId).toList())
-                .stream().collect(Collectors.groupingBy(OrderItem::getOrderId));
-
-        // (chi nhanh, kenh) -> [so don, doanh thu, gia von]; TreeMap de thu tu ghi on dinh
-        Map<String, Totals> groups = new TreeMap<>();
-        for (SalesOrder o : orders) {
-            Totals t = groups.computeIfAbsent(o.getBranchId() + "|" + o.getChannel(),
-                    k -> new Totals(o.getBranchId(), o.getChannel()));
-            t.orderCount++;
-            for (OrderItem it : itemsByOrder.getOrDefault(o.getId(), List.of())) {
-                BigDecimal qty = BigDecimal.valueOf(it.getQuantity());
-                t.revenue = t.revenue.add(it.getUnitPrice().multiply(qty));
-                if (it.getCostPrice() != null) {
-                    t.cogs = t.cogs.add(it.getCostPrice().multiply(qty));
-                }
-            }
-        }
+        // Tong hop trong CSDL theo (chi nhanh, kenh): chi don Confirmed/Completed (NFR-PERF-01, khong IN (...) lon)
+        List<SalesAnalyticsRepository.BranchChannelSales> groups = salesAnalytics.byBranchAndChannel(tenantId,
+                new SalesAnalyticsRepository.SalesFilter(start, end, null, null, null));
 
         dailyReportRepository.deleteByTenantIdAndReportDate(tenantId, date);
         List<DailyReport> saved = new ArrayList<>();
-        for (Totals t : groups.values()) {
-            saved.add(dailyReportRepository.save(new DailyReport(tenantId, t.branchId, date, t.channel, t.orderCount,
-                    t.revenue.setScale(2, RoundingMode.HALF_UP), t.cogs.setScale(2, RoundingMode.HALF_UP))));
+        for (SalesAnalyticsRepository.BranchChannelSales g : groups) {
+            saved.add(dailyReportRepository.save(new DailyReport(tenantId, g.branchId(), date, g.channel(),
+                    (int) g.orderCount(), g.revenue().setScale(2, RoundingMode.HALF_UP),
+                    g.cogs().setScale(2, RoundingMode.HALF_UP))));
         }
         return views(tenantId, saved);
     }
@@ -108,18 +75,5 @@ public class DailyReportService {
                         branchNames.getOrDefault(r.getBranchId(), "N/A"), r.getChannel(), r.getOrderCount(),
                         r.getRevenue(), r.getCogs(), r.getGrossProfit(), r.getCreatedAt()))
                 .toList();
-    }
-
-    private static final class Totals {
-        private final UUID branchId;
-        private final OrderChannel channel;
-        private int orderCount;
-        private BigDecimal revenue = BigDecimal.ZERO;
-        private BigDecimal cogs = BigDecimal.ZERO;
-
-        private Totals(UUID branchId, OrderChannel channel) {
-            this.branchId = branchId;
-            this.channel = channel;
-        }
     }
 }

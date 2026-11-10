@@ -186,52 +186,58 @@ export interface TransferItemView {
   quantity: number
 }
 
+/** Khop StockTransferService.TransferView. */
 export interface TransferView {
   id: string
   code: string
   fromBranchId: string
+  fromBranchName: string
   toBranchId: string
+  toBranchName: string
   status: TransferStatus
-  note: string | null
-  createdBy: string | null
   createdAt: string
-  dispatchedAt: string | null
-  receivedAt: string | null
   items: TransferItemView[]
 }
 
-export type StocktakeStatus = 'OPEN' | 'APPROVED' | 'CANCELLED'
+/** Ke hoach muc 4 bang stocktake: OPEN/APPROVED. */
+export type StocktakeStatus = 'OPEN' | 'APPROVED'
 
+/** Khop StocktakeService.StocktakeItemView. */
 export interface StocktakeItemView {
   skuId: string
   skuCode: string
-  systemQty: number
-  countedQty: number | null
+  systemQuantity: number
+  countedQuantity: number | null
   difference: number | null
 }
 
+/** Khop StocktakeService.StocktakeView. */
 export interface StocktakeView {
   id: string
   code: string
   branchId: string
+  branchName: string
   status: StocktakeStatus
-  note: string | null
-  createdBy: string | null
+  approvedBy: string | null
   createdAt: string
-  approvedAt: string | null
   items: StocktakeItemView[]
 }
 
+/** Khop ProfitReportService.ProfitSummary; grossMargin la ty le (0.4 = 40%). */
 export interface ProfitSummary {
   totalRevenue: number
   totalCogs: number
   grossProfit: number
   grossMargin: number
+  totalOrders: number
+  totalQuantity: number
 }
 
+/** Khop ProfitReportService.ProfitBySku. */
 export interface ProfitBySku {
   skuId: string
   skuCode: string
+  productName: string
   quantitySold: number
   revenue: number
   cogs: number

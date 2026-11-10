@@ -38,3 +38,7 @@ frontend-*/dist/
 
 # Postman desktop app metadata
 .postman/
+
+# Playwright E2E
+e2e/test-results/
+e2e/playwright-report/

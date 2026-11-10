@@ -36,6 +36,18 @@ oism:
   seed:
     enabled: ${OISM_SEED_ENABLED:false}   # true: nap du lieu mau demo (2 tenant, 50 SKU...)
 
+# NFR-USA-01: chi mo /actuator/health (cong khai trong SecurityConfig), khong lo chi tiet thanh phan
+management:
+  endpoints:
+    web:
+      exposure:
+        include: health
+  endpoint:
+    health:
+      show-details: never
+      probes:
+        enabled: true
+
 springdoc:
   swagger-ui:
     path: /swagger-ui.html

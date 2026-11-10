@@ -32,7 +32,6 @@ export const stockApi = {
 export interface CreateTransferBody {
   fromBranchId: string
   toBranchId: string
-  note?: string
   items: { skuId: string; quantity: number }[]
 }
 
@@ -48,7 +47,8 @@ export const transferApi = {
 
 export interface CreateStocktakeBody {
   branchId: string
-  note?: string
+  /** de trong: kiem ke moi SKU dang co ton tai chi nhanh */
+  skuIds?: string[]
 }
 
 export const stocktakeApi = {
@@ -56,7 +56,7 @@ export const stocktakeApi = {
     data(api.get<Page<StocktakeView>>('/stocktakes', { params })),
   get: (id: string) => data(api.get<StocktakeView>(`/stocktakes/${id}`)),
   create: (body: CreateStocktakeBody) => data(api.post<StocktakeView>('/stocktakes', body)),
-  recordCounts: (id: string, counts: { skuId: string; countedQty: number }[]) =>
+  recordCounts: (id: string, counts: { skuId: string; countedQuantity: number }[]) =>
     data(api.put<StocktakeView>(`/stocktakes/${id}/counts`, { counts })),
   approve: (id: string) => data(api.post<StocktakeView>(`/stocktakes/${id}/approve`)),
 }
