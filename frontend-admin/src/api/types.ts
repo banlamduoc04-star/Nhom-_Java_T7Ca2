@@ -279,11 +279,37 @@ export interface StockAlert {
   skuId: string
   skuCode: string
   productName: string
-  status: 'OPEN' | 'RESOLVED'
+  status: StockAlertStatus
   threshold: number
-  availableAtAlert: number
+  /** Hang kha dung luc mo canh bao (cot stock_alert.available) */
+  available: number
   createdAt: string
-  resolvedAt: string | null
+  closedAt: string | null
+}
+
+/** Ke hoach muc 4, bang stock_alert: OPEN/CLOSED. */
+export type StockAlertStatus = 'OPEN' | 'CLOSED'
+
+/** Khop domain/event/StockAlertEvent (kenh /topic/tenants/{id}/alerts). */
+export interface StockAlertEvent {
+  alertId: string
+  branchId: string
+  skuId: string
+  skuCode: string
+  status: StockAlertStatus
+  threshold: number
+  available: number
+  createdAt: string
+}
+
+/** Khop domain/event/OrderCreatedEvent (kenh /topic/tenants/{id}/orders). */
+export interface OrderCreatedEvent {
+  orderId: string
+  orderCode: string
+  totalAmount: number
+  channel: string
+  createdBy: string
+  createdAt: string
 }
 
 export interface ValuationItem {

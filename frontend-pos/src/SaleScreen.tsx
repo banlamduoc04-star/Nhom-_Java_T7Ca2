@@ -1,5 +1,6 @@
 import { useCallback, useEffect, useRef, useState, type FormEvent } from 'react'
-import { errorText, logout, lookupBarcode, posCheckout, searchSkus, type CheckoutReceipt, type Me } from './api'
+import { errorText, logout, lookupBarcode, posCheckout, searchSkus, USE_MOCK, type CheckoutReceipt, type Me } from './api'
+import { subscribeNewOrders, type OrderCreatedEvent } from './realtime'
 import { addToCart, cartTotal, itemCount, looksLikeBarcode, removeLine, setQuantity, type CartLine, type SkuInfo } from './cart'
 
 interface Props {
@@ -31,6 +32,23 @@ export default function SaleScreen({ user, onLogout }: Props) {
 
   // Receipt modal state
   const [receipt, setReceipt] = useState<CheckoutReceipt | null>(null)
+
+  // FR-SIM-02: thong bao don moi cua cua hang (don san, don tay, POS khac)
+  const [newOrder, setNewOrder] = useState<OrderCreatedEvent | null>(null)
+
+  useEffect(() => {
+    if (USE_MOCK) return
+    let hideTimer: ReturnType<typeof setTimeout> | undefined
+    const unsubscribe = subscribeNewOrders(user.tenantId, (event) => {
+      setNewOrder(event)
+      clearTimeout(hideTimer)
+      hideTimer = setTimeout(() => setNewOrder(null), 8000)
+    })
+    return () => {
+      clearTimeout(hideTimer)
+      unsubscribe()
+    }
+  }, [user.tenantId])
 
   const total = cartTotal(cart)
 
@@ -166,6 +184,11 @@ export default function SaleScreen({ user, onLogout }: Props) {
         <span className="muted">{user.tenantName} · {user.fullName}</span>
         <button onClick={() => logout().then(onLogout)}>Đăng xuất</button>
       </header>
+      {newOrder && (
+        <div className="alert ok no-print" role="status" aria-live="polite">
+          🔔 Đơn mới {newOrder.orderCode} ({newOrder.channel}) - {money(Number(newOrder.totalAmount || 0))}
+        </div>
+      )}
 
       <main className="layout no-print">
         <section className="card">

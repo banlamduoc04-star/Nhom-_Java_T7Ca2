@@ -19,6 +19,8 @@ public interface StockAlertRepository extends JpaRepository<StockAlert, UUID> {
     List<StockAlert> findByTenantIdAndBranchIdAndStatusOrderByCreatedAtDesc(
             UUID tenantId, UUID branchId, StockAlert.Status status);
 
+    Optional<StockAlert> findByIdAndTenantId(UUID id, UUID tenantId);
+
     long countByTenantIdAndStatus(UUID tenantId, StockAlert.Status status);
 }
 

@@ -1,6 +1,5 @@
 package com.oism.application.order;
 
-import com.oism.application.inventory.StockAlertService;
 import com.oism.domain.exception.BusinessException;
 import com.oism.domain.exception.ErrorCode;
 import com.oism.domain.model.AppUser;
@@ -59,7 +58,6 @@ class PosCheckoutServiceTest {
     @Mock SkuRepository skuRepository;
     @Mock ProductRepository productRepository;
     @Mock ReservationService reservationService;
-    @Mock StockAlertService stockAlertService;
     @Mock ApplicationEventPublisher eventPublisher;
 
     PosCheckoutService service;
@@ -75,7 +73,7 @@ class PosCheckoutServiceTest {
         service = new PosCheckoutService(
                 orderRepository, itemRepository, historyRepository, paymentRepository,
                 branchRepository, appUserRepository, skuRepository, productRepository,
-                reservationService, stockAlertService, eventPublisher);
+                reservationService, eventPublisher);
 
         Branch branch = new Branch(tenantId, "Chi nhánh POS", BranchType.STORE);
         ReflectionTestUtils.setField(branch, "id", branchId);

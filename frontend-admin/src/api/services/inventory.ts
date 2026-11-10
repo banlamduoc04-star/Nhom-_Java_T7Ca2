@@ -1,5 +1,5 @@
 import { api, data } from '../client'
-import type { LedgerRow, Page, Receipt, ReceiptStatus, StockAlert, StockRow, StocktakeStatus, StocktakeView, Supplier, TransferStatus, TransferView } from '../types'
+import type { LedgerRow, Page, Receipt, ReceiptStatus, StockAlert, StockAlertStatus, StockRow, StocktakeStatus, StocktakeView, Supplier, TransferStatus, TransferView } from '../types'
 
 export const supplierApi = {
   list: () => data(api.get<Supplier[]>('/suppliers')),
@@ -57,12 +57,12 @@ export const stocktakeApi = {
   get: (id: string) => data(api.get<StocktakeView>(`/stocktakes/${id}`)),
   create: (body: CreateStocktakeBody) => data(api.post<StocktakeView>('/stocktakes', body)),
   recordCounts: (id: string, counts: { skuId: string; countedQty: number }[]) =>
-    data(api.post<StocktakeView>(`/stocktakes/${id}/counts`, { counts })),
+    data(api.put<StocktakeView>(`/stocktakes/${id}/counts`, { counts })),
   approve: (id: string) => data(api.post<StocktakeView>(`/stocktakes/${id}/approve`)),
 }
 
 export const alertApi = {
-  list: (params?: { status?: 'OPEN' | 'RESOLVED'; branchId?: string }) =>
+  list: (params?: { status?: StockAlertStatus; branchId?: string }) =>
     data(api.get<StockAlert[]>('/alerts/stock', { params })),
   resolve: (id: string) => data(api.post<{ message: string }>(`/alerts/stock/${id}/resolve`)),
   count: () => data(api.get<{ openAlerts: number }>('/alerts/stock/count')),

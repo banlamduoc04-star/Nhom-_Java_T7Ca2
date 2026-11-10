@@ -2,7 +2,7 @@
 
 **Nguồn sự thật:** `docs/ke-hoach/ke-hoach-du-an-oism.md` (gọi tắt là **KH**). Quy ước code: `docs/huong-dan/chuan-cau-hinh-chung.md` (gọi tắt là **Chuẩn**).
 **Nguyên tắc:** code khác KH thì sửa code; tài liệu sprint khác KH thì sửa tài liệu. Chỉ thêm thứ KH không có khi bắt buộc, ghi "(bổ sung)" và cập nhật lại KH.
-**Ngày lập:** 10/11/2026. **Trạng thái:** Giai đoạn 1 xong (11/11/2026); giai đoạn 2–5 chưa làm.
+**Ngày lập:** 10/11/2026. **Trạng thái:** Giai đoạn 1–2 xong (11/11/2026); giai đoạn 3–5 chưa làm.
 
 ## 0. Cách làm
 
@@ -59,6 +59,21 @@ Kiểm chứng: `./mvnw verify` xanh: 96 unit test + 38 test tích hợp (mới:
 | 2.5 | Trạng thái cảnh báo theo KH: `OPEN/CLOSED` (đổi `RESOLVED` → `CLOSED`, cập nhật dữ liệu cũ trong migration V9); cột `available` theo KH (đổi tên `available_at_alert`) | Mô hình dữ liệu dòng `stock_alert` |
 | 2.6 | Unique index một phần `uq_stock_alert_open (tenant_id, branch_id, sku_id) WHERE status = 'OPEN'` + `CHECK (status IN ('OPEN','CLOSED'))`; đổi tên index `idx_` → `ix_` | "Mỗi (branch_id, sku_id) tối đa 1 cảnh báo OPEN"; Chuẩn mục 5 |
 | 2.7 | Thay `findById` bằng hàm có `tenantId` trong `StockAlertService` | Chuẩn mục 7.1.3 |
+
+**Kết quả giai đoạn 2 (11/11/2026):**
+
+| # | Trạng thái | Ghi chú |
+|---|---|---|
+| 2.1 | Xong | `OrderService.createDraft/createAndReserve` phát `OrderCreatedEvent`; listener `AFTER_COMMIT` nên đơn rollback không được thông báo |
+| 2.2 | Xong | Admin nối `ws://<host API>/ws` (`websocketUrl()` suy ra từ `VITE_API_URL`), đọc token mới nhất trước mỗi lần (re)connect; cảnh báo `CLOSED` chỉ cập nhật số đếm, không báo động |
+| 2.3 | Xong | POS (`src/realtime.ts`, thêm `@stomp/stompjs`) hiện dải "Đơn mới …" 8 giây; `Me` thêm `tenantId`; tắt khi chạy dữ liệu giả |
+| 2.4 | Xong | `checkStockLevel` gọi trong `InventoryLedgerService.post` và `ReservationService.reserve/release` (mọi thay đổi `on_hand`/`reserved`), `Propagation.MANDATORY`; bỏ `try/catch (Exception)` và phụ thuộc `StockAlertService` khỏi `PosCheckoutService` |
+| 2.5 | Xong | `V9__stock_alert_theo_ke_hoach.sql`: `RESOLVED` → `CLOSED`, đổi cột `available_at_alert` → `available`, `resolved_at` → `closed_at`; đóng bớt cảnh báo OPEN trùng trong dữ liệu cũ |
+| 2.6 | Xong | `uq_stock_alert_open` + `ck_stock_alert_status`; index `ix_stock_alert_tenant_status/_sku/_created` |
+| 2.7 | Xong | `StockAlertService` chỉ dùng truy vấn có `tenantId` (`findByIdAndTenantId`, `findByTenantIdAndIdIn`); `POS` cũng thôi dùng `findAllById` cho sản phẩm |
+| Thêm | Xong | Admin gọi `POST /stocktakes/{id}/counts` trong khi KH và backend là `PUT` (405) → đổi sang `PUT` |
+
+Kiểm chứng: `./mvnw verify` xanh: 100 unit test + 43 test tích hợp. Mới: `StockAlertIT` (3: kịch bản 2 UAT Sprint 4, đơn sàn giữ/hủy, cô lập tenant), `RealtimeIT` (2: client STOMP thật nhận đơn webhook + cảnh báo của tenant mình, tenant khác bị ERROR, không token bị từ chối), `OrderServiceTest` +2, `StockAlertServiceTest` +2. Admin/POS `build`, `lint`, `test` xanh. Chưa kiểm tra bằng mắt trên trình duyệt.
 
 ## Giai đoạn 3 – API, quyền và dữ liệu theo đúng KH
 

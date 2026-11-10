@@ -46,7 +46,7 @@ public class StockAlertController {
     public Map<String, String> resolve(
             @AuthenticationPrincipal AuthenticatedUser user,
             @PathVariable UUID id) {
-        stockAlertService.resolveAlert(user.tenantId(), id);
+        stockAlertService.closeAlert(user.tenantId(), id);
         return Map.of("message", "Đã đóng cảnh báo thành công");
     }
 

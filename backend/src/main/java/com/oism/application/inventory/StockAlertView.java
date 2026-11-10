@@ -14,8 +14,8 @@ public record StockAlertView(
         String productName,
         StockAlert.Status status,
         int threshold,
-        int availableAtAlert,
+        int available,
         Instant createdAt,
-        Instant resolvedAt
+        Instant closedAt
 ) {}
 

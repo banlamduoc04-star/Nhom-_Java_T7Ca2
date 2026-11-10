@@ -11,13 +11,10 @@ import java.util.Map;
 import java.util.UUID;
 import java.util.stream.Collectors;
 
-import org.slf4j.Logger;
-import org.slf4j.LoggerFactory;
 import org.springframework.context.ApplicationEventPublisher;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
-import com.oism.application.inventory.StockAlertService;
 import com.oism.domain.event.OrderCreatedEvent;
 import com.oism.domain.exception.BusinessException;
 import com.oism.domain.exception.ErrorCode;
@@ -52,7 +49,6 @@ import com.oism.domain.service.OrderStateMachine;
 @Service
 public class PosCheckoutService {
 
-    private static final Logger log = LoggerFactory.getLogger(PosCheckoutService.class);
 
     private final SalesOrderRepository orderRepository;
     private final OrderItemRepository itemRepository;
@@ -63,7 +59,6 @@ public class PosCheckoutService {
     private final SkuRepository skuRepository;
     private final ProductRepository productRepository;
     private final ReservationService reservationService;
-    private final StockAlertService stockAlertService;
     private final ApplicationEventPublisher eventPublisher;
     private final SecureRandom random = new SecureRandom();
 
@@ -76,7 +71,6 @@ public class PosCheckoutService {
                               SkuRepository skuRepository,
                               ProductRepository productRepository,
                               ReservationService reservationService,
-                              StockAlertService stockAlertService,
                               ApplicationEventPublisher eventPublisher) {
         this.orderRepository = orderRepository;
         this.itemRepository = itemRepository;
@@ -87,7 +81,6 @@ public class PosCheckoutService {
         this.skuRepository = skuRepository;
         this.productRepository = productRepository;
         this.reservationService = reservationService;
-        this.stockAlertService = stockAlertService;
         this.eventPublisher = eventPublisher;
     }
 
@@ -178,14 +171,7 @@ public class PosCheckoutService {
         historyRepository.save(new OrderStatusHistory(tenantId, order.getId(), OrderStatus.CONFIRMED, OrderStatus.COMPLETED,
                 userId, "Thanh toán POS thành công"));
 
-        // 10. Kiểm tra cảnh báo tồn thấp (best-effort, không làm fail checkout)
-        for (UUID skuId : skuIds) {
-            try {
-                stockAlertService.checkStockLevel(tenantId, cmd.branchId(), skuId);
-            } catch (Exception e) {
-                log.warn("Không thể kiểm tra cảnh báo tồn kho cho SKU {}: {}", skuId, e.getMessage());
-            }
-        }
+        // 10. Cảnh báo tồn thấp (FR-REP-03) đã được đánh giá trong cùng giao dịch khi trừ kho qua sổ cái
 
         // 11. Phát sự kiện realtime
         eventPublisher.publishEvent(new OrderCreatedEvent(
@@ -193,7 +179,7 @@ public class PosCheckoutService {
 
         // 12. Trả về response in hóa đơn
         List<UUID> prodIds = skus.values().stream().map(Sku::getProductId).distinct().toList();
-        Map<UUID, String> prodNames = productRepository.findAllById(prodIds).stream()
+        Map<UUID, String> prodNames = productRepository.findByTenantIdAndIdIn(tenantId, prodIds).stream()
                 .collect(Collectors.toMap(Product::getId, Product::getName, (a, b) -> a));
 
         List<PosCheckoutResponse.PosReceiptLine> receiptItems = items.stream().map(it -> {

@@ -144,7 +144,7 @@ export default function DashboardPage() {
                   key: 'qty',
                   render: (_, r) => (
                     <span style={{ color: '#cf1322', fontWeight: 600 }}>
-                      {r.availableAtAlert} / {r.threshold}
+                      {r.available} / {r.threshold}
                     </span>
                   ),
                 },

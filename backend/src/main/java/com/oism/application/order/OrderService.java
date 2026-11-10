@@ -13,6 +13,7 @@ import java.util.Map;
 import java.util.UUID;
 import java.util.stream.Collectors;
 
+import org.springframework.context.ApplicationEventPublisher;
 import org.springframework.data.domain.Page;
 import org.springframework.data.domain.Sort;
 import org.springframework.data.jpa.domain.Specification;
@@ -21,6 +22,7 @@ import org.springframework.transaction.annotation.Transactional;
 
 import com.oism.application.common.PageResult;
 import com.oism.application.common.Paging;
+import com.oism.domain.event.OrderCreatedEvent;
 import com.oism.domain.exception.BusinessException;
 import com.oism.domain.exception.ErrorCode;
 import com.oism.domain.model.Branch;
@@ -58,6 +60,7 @@ public class OrderService {
     private final SkuRepository skuRepository;
     private final TenantRepository tenantRepository;
     private final ReservationService reservationService;
+    private final ApplicationEventPublisher eventPublisher;
     private final SecureRandom random = new SecureRandom();
 
     public OrderService(SalesOrderRepository orderRepository,
@@ -66,7 +69,8 @@ public class OrderService {
                         BranchRepository branchRepository,
                         SkuRepository skuRepository,
                         ReservationService reservationService,
-                        TenantRepository tenantRepository) {
+                        TenantRepository tenantRepository,
+                        ApplicationEventPublisher eventPublisher) {
         this.orderRepository = orderRepository;
         this.itemRepository = itemRepository;
         this.historyRepository = historyRepository;
@@ -74,6 +78,7 @@ public class OrderService {
         this.skuRepository = skuRepository;
         this.reservationService = reservationService;
         this.tenantRepository = tenantRepository;
+        this.eventPublisher = eventPublisher;
     }
 
     // =========================================================================
@@ -98,6 +103,7 @@ public class OrderService {
         saveOrderItems(tenantId, order.getId(), lines, skus);
         historyRepository.save(new OrderStatusHistory(tenantId, order.getId(), null, OrderStatus.DRAFT,
                 userId, "Tạo đơn nháp thủ công"));
+        publishOrderCreated(order, userId);
         return view(tenantId, order);
     }
 
@@ -130,6 +136,7 @@ public class OrderService {
         historyRepository.save(new OrderStatusHistory(tenantId, order.getId(), OrderStatus.DRAFT,
                 OrderStatus.RESERVED, userId, "Giữ hàng thành công"));
 
+        publishOrderCreated(order, userId);
         return view(tenantId, order);
     }
 
@@ -375,5 +382,15 @@ public class OrderService {
         return tenantRepository.findById(tenantId)
                 .map(t -> Duration.ofMinutes(t.getReservationMinutes()))
                 .orElse(DEFAULT_RESERVE_DURATION);
+    }
+
+    /**
+     * FR-SIM-02 + Ke hoach muc 4 "Luong giu hang" buoc 6: commit roi moi phat su kien "don moi".
+     * RealtimeEventListener nghe AFTER_COMMIT nen don bi rollback khong bao gio duoc thong bao.
+     */
+    private void publishOrderCreated(SalesOrder order, UUID userId) {
+        String createdBy = userId != null ? userId.toString() : "Sàn " + order.getChannel().name();
+        eventPublisher.publishEvent(new OrderCreatedEvent(order.getTenantId(), order.getId(), order.getCode(),
+                order.getTotalAmount(), order.getChannel().name(), createdBy, Instant.now()));
     }
 }

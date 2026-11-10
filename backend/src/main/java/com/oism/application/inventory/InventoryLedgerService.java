@@ -21,11 +21,14 @@ public class InventoryLedgerService {
 
     private final StockBalanceRepository stockBalanceRepository;
     private final InventoryTransactionRepository inventoryTransactionRepository;
+    private final StockAlertService stockAlertService;
 
     public InventoryLedgerService(StockBalanceRepository stockBalanceRepository,
-                                  InventoryTransactionRepository inventoryTransactionRepository) {
+                                  InventoryTransactionRepository inventoryTransactionRepository,
+                                  StockAlertService stockAlertService) {
         this.stockBalanceRepository = stockBalanceRepository;
         this.inventoryTransactionRepository = inventoryTransactionRepository;
+        this.stockAlertService = stockAlertService;
     }
 
     /** Ghi but toan va tra ve on_hand sau khi ghi. OUT vuot hang kha dung -> IV40901. */
@@ -55,6 +58,8 @@ public class InventoryLedgerService {
         inventoryTransactionRepository.save(new InventoryTransaction(
                 entry.tenantId(), entry.branchId(), entry.skuId(), entry.direction(), entry.reason(),
                 entry.quantity(), newOnHand, entry.unitCost(), entry.refType(), entry.refId(), entry.createdBy()));
+        // FR-REP-03: on_hand doi thi available doi -> mo/dong canh bao ton thap trong cung giao dich
+        stockAlertService.checkStockLevel(entry.tenantId(), entry.branchId(), entry.skuId());
         return newOnHand;
     }
 }

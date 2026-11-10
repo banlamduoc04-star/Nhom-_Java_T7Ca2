@@ -10,8 +10,8 @@ import { Outlet, useLocation, useNavigate } from 'react-router-dom'
 import { Client } from '@stomp/stompjs'
 import { useAuth } from '../auth/AuthContext'
 import { alertApi } from '../api/services'
-import { tokenStore } from '../api/client'
-import type { Role } from '../api/types'
+import { tokenStore, websocketUrl } from '../api/client'
+import type { OrderCreatedEvent, Role, StockAlertEvent } from '../api/types'
 
 const { Header, Sider, Content } = Layout
 
@@ -73,14 +73,13 @@ export default function AppLayout() {
 
     alertApi.count().then((r) => setOpenAlertsCount(r.openAlerts)).catch(() => undefined)
 
-    const tokens = tokenStore.get()
-    const token = tokens ? tokens.accessToken : ''
-    const protocol = window.location.protocol === 'https:' ? 'wss' : 'ws'
-    const brokerURL = `${protocol}://${window.location.host}/ws`
-
+    // FR-SIM-02: /ws nam o backend (suy ra tu VITE_API_URL), khong phai host cua trang Admin
     const client = new Client({
-      brokerURL,
-      connectHeaders: { Authorization: `Bearer ${token}` },
+      brokerURL: websocketUrl(),
+      // doc token moi nhat truoc moi lan (re)connect: access token co the vua duoc lam moi
+      beforeConnect: (c) => {
+        c.connectHeaders = { Authorization: `Bearer ${tokenStore.get()?.accessToken ?? ''}` }
+      },
       debug: () => {},
       reconnectDelay: 5000,
       heartbeatIncoming: 4000,
@@ -92,7 +91,7 @@ export default function AppLayout() {
       client.subscribe(`/topic/tenants/${user.tenantId}/orders`, (message) => {
         if (message.body) {
           try {
-            const data = JSON.parse(message.body)
+            const data = JSON.parse(message.body) as OrderCreatedEvent
             playNotificationSound()
             notification.info({
               message: '🔔 Có đơn hàng mới!',
@@ -108,15 +107,16 @@ export default function AppLayout() {
       client.subscribe(`/topic/tenants/${user.tenantId}/alerts`, (message) => {
         if (message.body) {
           try {
-            const data = JSON.parse(message.body)
+            const data = JSON.parse(message.body) as StockAlertEvent
+            alertApi.count().then((r) => setOpenAlertsCount(r.openAlerts)).catch(() => undefined)
+            if (data.status !== 'OPEN') return // CLOSED: chi cap nhat so dem, khong bao dong
             playNotificationSound()
             notification.warning({
               message: '⚠️ Cảnh báo tồn kho thấp!',
-              description: `SKU ${data.skuCode} tại chi nhánh đã xuống dưới ngưỡng đặt lại!`,
+              description: `SKU ${data.skuCode} còn ${data.available} (ngưỡng ${data.threshold})`,
               placement: 'topRight',
               duration: 6,
             })
-            alertApi.count().then((r) => setOpenAlertsCount(r.openAlerts)).catch(() => undefined)
           } catch {  }
         }
       })

@@ -29,17 +29,20 @@ Sprint 4 tập trung vào hoàn thiện vòng đời bán hàng tại quầy (**
   4. Trừ `on_hand`, giảm `reserved`, chụp `cost_price` từ `avg_cost` vào `order_item` (`CONFIRMED`).
   5. Chuyển sang `COMPLETED`.
   6. Ghi nhận thanh toán `payment` (`CASH` tính tiền thối hoặc `QR`).
-  7. Kiểm tra ngưỡng `reorder_point` để sinh cảnh báo nếu thiếu hàng.
-  8. Phát sự kiện `OrderCreatedEvent` cho WebSocket.
+  7. Cảnh báo tồn thấp được đánh giá ngay trong bước trừ kho (sổ cái), cùng giao dịch.
+  8. Phát sự kiện `OrderCreatedEvent` cho WebSocket (sau commit). Đơn webhook, Simulator và đơn tạo tay cũng phát sự kiện này.
   Nếu bất kỳ bước nào gặp lỗi (hết hàng, số lượng không đủ), toàn bộ giao dịch rollback hoàn toàn.
 
 ### 2.3 Quản lý cảnh báo tồn kho thấp (M4)
-- **Bảng `stock_alert` (Flyway V6):**
-  - Lưu trạng thái cảnh báo theo từng SKU $\times$ Chi nhánh.
-  - Trạng thái: `OPEN`, `RESOLVED`.
-- **Quy tắc:**
-  - Khi $\text{available} \le \text{reorder\_point}$ (và $\text{reorder\_point} > 0$): tự động tạo cảnh báo `OPEN` (nếu chưa có).
-  - Khi nhập thêm hàng dẫn đến $\text{available} > \text{reorder\_point}$: tự động đóng cảnh báo (`RESOLVED`).
+- **Bảng `stock_alert`** (tạo ở V6, đưa về đúng mô hình dữ liệu của kế hoạch ở V9):
+  - Cột theo kế hoạch: `branch_id`, `sku_id`, `available`, `threshold`, `status`, `closed_at`.
+  - Trạng thái: `OPEN`, `CLOSED` (`CHECK ck_stock_alert_status`).
+  - Mỗi (chi nhánh, SKU) tối đa 1 cảnh báo `OPEN`: unique index một phần `uq_stock_alert_open`.
+- **Quy tắc (`StockAlertService.checkStockLevel`):**
+  - Khi $\text{available} \le \text{reorder\_point}$ (và $\text{reorder\_point} > 0$): mở cảnh báo `OPEN` nếu chưa có.
+  - Khi $\text{available} > \text{reorder\_point}$ (hoặc `reorder_point = 0`): tự động đóng (`CLOSED`).
+  - Được gọi sau **mọi** thay đổi tồn, trong cùng giao dịch, sau khi đã khóa dòng `stock_balance`: `InventoryLedgerService.post` (nhập, bán, trả, chuyển kho, kiểm kê) và `ReservationService.reserve/release` (giữ/nhả hàng, hủy đơn, quá hạn).
+  - Phát `StockAlertEvent` (OPEN hoặc CLOSED) sau commit lên `/topic/tenants/{tenantId}/alerts`.
 
 ### 2.4 Keyset Pagination cho Sổ cái (M4)
 - Thay vì dùng `OFFSET` suy giảm hiệu năng trên hàng triệu bản ghi, hệ thống hỗ trợ truy vấn:
