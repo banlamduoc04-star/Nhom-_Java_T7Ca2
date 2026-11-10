@@ -155,7 +155,7 @@ Giá trị cố định theo kế hoạch: access token 60 phút, refresh token 
 
 ### 7.2. Sổ cái tồn kho (FR-INV-01)
 
-1. Cột `on_hand`/`reserved` **chỉ** được sửa trong `InventoryLedgerService.post(...)`, cùng giao dịch với dòng `inventory_transaction`. Không viết `UPDATE stock_balance` ở nơi khác.
+1. Cột `on_hand` **chỉ** được sửa trong `InventoryLedgerService.post(...)`, cùng giao dịch với dòng `inventory_transaction` (Kế hoạch mục 4: "Không nơi nào khác được sửa `on_hand`"). Cột `reserved` (giữ hàng, không phải biến động kho nên không ghi sổ cái) chỉ được sửa trong `ReservationService`, sau khi khóa dòng bằng `findForUpdate`. Không viết `UPDATE stock_balance` ở nơi khác. Sau mỗi thay đổi `on_hand`/`reserved`, hai nơi này gọi `StockAlertService.checkStockLevel` trong cùng giao dịch (FR-REP-03).
 2. `post` bắt buộc chạy trong giao dịch (`Propagation.MANDATORY`) và khóa dòng bằng `SELECT ... FOR UPDATE`. Khi khóa nhiều SKU, **khóa theo thứ tự `sku_id` tăng dần** để tránh deadlock.
 3. Sổ cái chỉ ghi thêm: không có hàm sửa/xóa, DB có trigger chặn. Sửa sai bằng bút toán bù.
 4. Giá vốn chỉ đổi khi xác nhận phiếu nhập, qua `CostCalculator`; chụp `cost_price` vào dòng đơn khi đơn sang Confirmed (Sprint 3).

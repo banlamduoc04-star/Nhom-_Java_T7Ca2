@@ -2,7 +2,7 @@
 
 **Nguồn sự thật:** `docs/ke-hoach/ke-hoach-du-an-oism.md` (gọi tắt là **KH**). Quy ước code: `docs/huong-dan/chuan-cau-hinh-chung.md` (gọi tắt là **Chuẩn**).
 **Nguyên tắc:** code khác KH thì sửa code; tài liệu sprint khác KH thì sửa tài liệu. Chỉ thêm thứ KH không có khi bắt buộc, ghi "(bổ sung)" và cập nhật lại KH.
-**Ngày lập:** 10/11/2026. **Trạng thái:** Giai đoạn 1–4 xong (11/11/2026); giai đoạn 5 chưa làm.
+**Ngày lập:** 10/11/2026. **Trạng thái:** Cả 5 giai đoạn xong (11/11/2026). Việc còn mở: xem cuối tài liệu.
 
 ## 0. Cách làm
 
@@ -160,6 +160,29 @@ Chưa làm: đưa Postman/E2E vào CI (cần dựng Docker trong CI); đo tải 
 | `ke-hoach/ke-hoach-du-an-oism.md` | Thêm các API "(bổ sung)" và mã lỗi mới (nếu có) |
 | `README.md` | Thêm cây thư mục 4 lớp Clean Architecture (giải thích vì sao không phải `controller/service/repository`) |
 
+
+**Kết quả giai đoạn 5 (11/11/2026):** mọi số liệu ghi vào tài liệu là kết quả chạy thật (test tự động, newman, Playwright, hoặc chạy lại trên bản Docker).
+
+| Tài liệu | Đã sửa |
+|---|---|
+| `sprint3/thiet-ke-chi-tiet-sprint3.md` | Trạng thái `IN_TRANSIT`, kiểm kê `OPEN/APPROVED`, SQL V5 thật, mô tả lớp đúng code, dạng API báo cáo lợi nhuận |
+| `sprint3/test-case-sprint3.md` | Sửa phương thức, tên lý do sổ cái, 30 phút, bỏ Lazada; thêm cột **Bằng chứng** cho từng case. 4 case trước đây ghi PASS mà chưa có test (TC-ORD-06, TC-RSE-03, TC-RSE-04, TC-TRN-04) nay có `OrderLifecycleIT` |
+| `sprint3/kich-ban-flash-sale.md` | Chạy lại thật: 50 đơn / 1 cái → 1 thành công (`DH-20261110-8239`), 49 `IV40901`; 25 đơn / 10 cái → 10 / 15; bỏ mã đơn liên tiếp không có thật |
+| `sprint4/thiet-ke-chi-tiet-sprint4.md` | Kênh WebSocket, `CLOSED`, `daily_report`, quyền POS (đã làm ở GĐ1–3) |
+| `sprint4/kich-ban-bao-cao-uat-sprint4.md` | Chạy lại 4 kịch bản trên Docker, ghi số liệu thật; ghi rõ bản 04/11 báo "Đạt" sai ở kịch bản 2–3; thêm BUG-S4-04..06 |
+| `sprint5/rtm-v5.md` (mới), `sprint4/rtm-v4.md` | RTM v5: 33 FR + 11 NFR, bằng chứng từng mục; 5 mục "Đạt một phần" ghi rõ phần thiếu. RTM v4 đánh dấu đã thay thế |
+| `sprint1/kien-truc-backend-sprint1.md` | Đường dẫn `backend/`, bỏ "chưa biên dịch", thêm tầng mới (persistence, websocket, scheduler), giải thích vì sao không chia `controller/service/repository` |
+| `huong-dan/chuan-cau-hinh-chung.md` 7.2.1 | Đúng như kế hoạch: `on_hand` chỉ qua `InventoryLedgerService.post`; `reserved` chỉ trong `ReservationService` dưới khóa; cả hai gọi kiểm tra cảnh báo |
+| `ke-hoach/ke-hoach-du-an-oism.md` | Các API "(bổ sung)" đã thêm ở GĐ1, 3; không có mã lỗi mới |
+| `README.md` | Cây thư mục 4 lớp + bảng phụ thuộc, mục Kiểm thử với kết quả gần nhất, lộ trình |
+
+Kiểm chứng cuối: `./mvnw verify` 115 unit + 59 tích hợp đạt.
 ## Thứ tự và tiêu chí xong
 
 1 → 2 → 3 → 4 → 5. Hoàn tất khi đạt **Nghiệm thu Sprint 4 và Sprint 5 của KH**: gửi webhook từ Simulator thì Admin hiện popup không tải lại trang; nhập hàng vượt ngưỡng thì cảnh báo tự đóng; Flash Sale 50/1 đạt; `docker compose up` chạy đủ hệ thống, có healthcheck; CI xanh với coverage module lõi ≥ 80%; RTM v5 khớp kết quả test.
+
+## Việc còn mở sau 5 giai đoạn
+
+- NFR-SEC-01: cấu hình HTTPS khi triển khai. NFR-USA-01: đo tỷ lệ sẵn sàng. NFR-PERF-01: đo tải song song bằng JMeter.
+- Test tự động cho F2/Esc, cài đặt PWA, in tem mã vạch, màn Simulator trên Admin.
+- Đưa Postman và E2E vào CI (cần dựng Docker trong pipeline).

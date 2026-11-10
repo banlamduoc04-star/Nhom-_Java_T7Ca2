@@ -44,7 +44,7 @@ Dự án chia thành **5 sprint** với **7 thành viên (M1–M7)**. Kế hoạ
 | Cô lập tenant | Cột `tenant_id` + Hibernate `@Filter` theo từng request |
 | Tài liệu API | springdoc-openapi (Swagger UI) |
 | Frontend | Admin Dashboard và POS (React + Vite + TypeScript; Admin dùng Ant Design, POS là PWA) |
-| Kiểm thử | JUnit 5, Mockito, Testcontainers, ArchUnit, Vitest (Playwright, JMeter ở Sprint 5) |
+| Kiểm thử | JUnit 5, Mockito, Testcontainers, ArchUnit, JaCoCo, Vitest, Postman/newman, Playwright |
 | Triển khai | Docker, docker-compose, GitHub Actions |
 
 ## 🚀 Chạy bằng Docker (khuyến nghị)
@@ -105,16 +105,54 @@ Chi tiết từng bước và xử lý lỗi: [Hướng dẫn chạy dự án OI
 
 ## 🏗️ Kiến trúc backend
 
-Clean Architecture 4 lớp trong `backend/src/main/java/com/oism`:
+Backend là **Spring Boot MVC dạng REST** (`@RestController`), tổ chức theo **Clean Architecture 4 lớp** (Kế hoạch mục 4, quyết định 1). Mã được chia **theo lớp kiến trúc trước, theo module nghiệp vụ sau**, chứ không theo kiểu quen thuộc `controller/ service/ repository/ model/`. Cách chia này cho phép ArchUnit kiểm tra quy tắc phụ thuộc trong CI (domain không được biết web hay hạ tầng; controller không gọi repository). Phần "View" của MVC là hai ứng dụng React.
 
-| Lớp | Nội dung |
+```text
+backend/src/main/java/com/oism/
+├── domain/                      # Lõi nghiệp vụ, không phụ thuộc lớp nào khác
+│   ├── model/                   #   Entity JPA: SalesOrder, Sku, StockBalance, InventoryTransaction…
+│   ├── repository/              #   Interface Spring Data (mọi truy vấn có tenantId), SalesAnalyticsRepository
+│   ├── service/                 #   Quy tắc thuần: OrderStateMachine, CostCalculator, Ean13
+│   ├── exception/               #   ErrorCode (AU/PR/IV/OD/RP/SY), BusinessException
+│   └── event/                   #   OrderCreatedEvent, StockAlertEvent
+├── application/                 # Use case (@Service, @Transactional) + record …View trả ra ngoài
+│   ├── auth/ branch/ user/ tenant/ common/   # common: PageResult, Paging, Sha256
+│   ├── catalog/                 #   sản phẩm, SKU, danh mục, thương hiệu (PROD)
+│   ├── inventory/               #   sổ cái, nhập kho, chuyển kho, kiểm kê, cảnh báo (INV, COST)
+│   ├── order/                   #   đơn hàng, giữ hàng, POS, webhook key (ORD, RSE, POS, SIM)
+│   └── report/                  #   lợi nhuận, báo cáo tồn, chốt ngày (REP)
+├── infrastructure/              # Kỹ thuật: được phụ thuộc domain + application
+│   ├── security/                #   JWT, SecurityConfig, WebhookApiKeyFilter
+│   ├── tenant/                  #   TenantContext, bật Hibernate @Filter theo request
+│   ├── websocket/               #   STOMP, chặn kênh khác tenant
+│   ├── scheduler/               #   hủy đơn giữ quá hạn, chốt sổ ngày
+│   ├── persistence/             #   truy vấn tổng hợp báo cáo (JPQL SUM/GROUP BY)
+│   └── seed/ config/            #   dữ liệu mẫu, OpenAPI
+└── web/                         # REST: controller + request DTO, chỉ gọi application
+    ├── auth/ branch/ user/ tenant/ catalog/ inventory/ order/ report/ common/
+    └── error/                   #   GlobalExceptionHandler → {errorCode, message, details}
+```
+
+| Lớp | Được phép phụ thuộc vào |
 | --- | --- |
-| `domain` | Entity, repository, `ErrorCode`, `BusinessException` |
-| `application` | Use case/service (`AuthService`), command, result |
-| `infrastructure` | JWT, Security, tenant filter, OpenAPI |
-| `web` | Controller, DTO, `GlobalExceptionHandler` |
+| `web` | `application` (không gọi `domain.repository` trực tiếp) |
+| `application` | `domain` |
+| `infrastructure` | `domain`, `application` |
+| `domain` | không lớp nào |
 
-Lỗi trả về thống nhất dạng `{"errorCode": "IV40901", "message": "...", "details": []}` với mã `<TIỀN TỐ><HTTP><SỐ>` (AU, PR, IV, OD, RP, SY).
+Lỗi trả về thống nhất dạng `{"errorCode": "IV40901", "message": "...", "details": []}` với mã `<TIỀN TỐ><HTTP><SỐ>` (AU, PR, IV, OD, RP, SY). Quy ước chi tiết: [`docs/huong-dan/chuan-cau-hinh-chung.md`](docs/huong-dan/chuan-cau-hinh-chung.md).
+
+## 🧪 Kiểm thử
+
+| Loại | Lệnh | Kết quả gần nhất (11/11/2026) |
+| --- | --- | --- |
+| Unit + ArchUnit | `cd backend && ./mvnw test` | 115/115 |
+| Tích hợp (cần Docker) | `cd backend && ./mvnw verify` | 59/59 |
+| Coverage + cổng 80% | `cd backend && ./mvnw -Pcoverage verify` (đường dẫn không dấu) | sổ cái 95,8%, giữ hàng 84,1%, giá vốn 100% |
+| Postman (bản Docker) | `npx newman run postman/<collection>.json -e postman/OISM_Local.postman_environment.json` | 244/244 assertion |
+| E2E (bản Docker) | `cd e2e && npm ci && npx playwright install chromium && npm test` | 7/7 |
+
+Kết quả đầy đủ, hiệu năng và RTM: [`docs/sprint5/ket-qua-kiem-thu-giai-doan-4.md`](docs/sprint5/ket-qua-kiem-thu-giai-doan-4.md), [`docs/sprint5/rtm-v5.md`](docs/sprint5/rtm-v5.md).
 
 ## 📁 Cấu trúc thư mục
 
@@ -125,6 +163,8 @@ Lỗi trả về thống nhất dạng `{"errorCode": "IV40901", "message": "...
 ├── backend/                   # Spring Boot 3 (Dockerfile, pom.xml, src/)
 ├── frontend-admin/            # Admin Dashboard (React + Vite + TS + Ant Design)
 ├── frontend-pos/              # POS (React + Vite + TS, PWA)
+├── postman/                   # Collection + environment Postman (chạy bằng newman)
+├── e2e/                       # Kiểm thử E2E Playwright (Admin + POS)
 ├── docs/                      # Kế hoạch, hướng dẫn, tài liệu từng sprint, sơ đồ thiết kế
 └── .github/                   # Mẫu pull request, workflow CI
 ```
@@ -134,8 +174,8 @@ Lỗi trả về thống nhất dạng `{"errorCode": "IV40901", "message": "...
 | Sprint | Mục tiêu |
 | --- | --- |
 | 1 | Phân tích, thiết kế, nền tảng backend, đăng ký/đăng nhập JWT, Swagger ✅ |
-| 2 | Sản phẩm, sổ cái tồn kho, nhập kho, giá vốn |
-| 3 | Đơn hàng, chống bán vượt, chuyển kho, kiểm kê, simulator |
+| 2 | Sản phẩm, sổ cái tồn kho, nhập kho, giá vốn ✅ |
+| 3 | Đơn hàng, chống bán vượt, chuyển kho, kiểm kê, simulator ✅ |
 | 4 | POS, realtime, tác vụ nền, báo cáo ✅ |
-| 5 | Kiểm thử, hoàn thiện, Docker Compose + seed data, CI/CD, tài liệu |
+| 5 | Kiểm thử, hoàn thiện, Docker Compose + seed data, CI/CD, tài liệu (đang làm – xem [kế hoạch sửa lỗi](docs/sprint5/ke-hoach-sua-loi-sprint5.md)) |
 

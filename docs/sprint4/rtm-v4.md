@@ -2,7 +2,7 @@
 **Dự án:** OISM (Omnichannel Inventory and Sales Management System)  
 **Tác giả:** M1 – Dung Hoang  
 **Ngày phát hành:** 04/11/2026  
-**Trạng thái:** Hoàn thành Sprint 4  
+**Trạng thái:** Đã được thay bằng [RTM v5](../sprint5/rtm-v5.md) (11/11/2026). Bản v4 ghi "Đạt" cho FR-SIM-02, FR-REP-03, FR-AUTH-05, FR-SIM-01 nhưng rà soát Sprint 5 cho thấy các mục này chưa đạt lúc đó; giữ nguyên bên dưới làm lịch sử.  
 
 ---
 

@@ -1,30 +1,32 @@
 # BẢNG TEST CASE CHI TIẾT SPRINT 3
 **Dự án:** OISM  
 **QA Lead:** Dung Hoang  
-**Sprint:** 3  
+**Sprint:** 3 · **Cập nhật:** 11/11/2026 – chạy lại trên nhánh Sprint 5, mỗi case có bằng chứng là test tự động hoặc lần chạy trên bản Docker
 
 ---
 
-| Mã TC | Phân hệ / Chức năng | Điều kiện & Dữ liệu đầu vào | Các bước thực hiện | Kết quả mong đợi | Trạng thái |
-|---|---|---|---|---|---|
-| **TC-ORD-01** | Tạo đơn hàng nháp (Draft) | Branch active, 2 SKU hợp lệ | Gọi POST `/api/v1/orders` với danh sách lines | Đơn hàng tạo ở trạng thái DRAFT, tồn kho chưa đổi | **PASS** |
-| **TC-ORD-02** | Giữ hàng cho đơn nháp | Đơn hàng ở trạng thái DRAFT | Gọi POST `/api/v1/orders/{id}/reserve` | Status chuyển sang RESERVED, reserved tăng, available giảm tương ứng | **PASS** |
-| **TC-ORD-03** | Xác nhận đơn hàng (Confirm) | Đơn ở trạng thái RESERVED | Gọi POST `/api/v1/orders/{id}/confirm` | Status sang CONFIRMED, reserved giảm, onHand giảm, ghi sổ OUT_SALE, cost_price được chụp từ avg_cost | **PASS** |
-| **TC-ORD-04** | Hoàn tất đơn hàng | Đơn ở trạng thái CONFIRMED | Gọi POST `/api/v1/orders/{id}/complete` | Status sang COMPLETED | **PASS** |
-| **TC-ORD-05** | Hủy đơn khi đang giữ hàng | Đơn ở trạng thái RESERVED | Gọi POST `/api/v1/orders/{id}/cancel` kèm lý do | Status sang CANCELLED, reserved được nhả lại kho, available phục hồi | **PASS** |
-| **TC-ORD-06** | Hủy đơn sau khi đã xác nhận | Đơn ở trạng thái CONFIRMED | Gọi POST `/api/v1/orders/{id}/cancel` kèm lý do | Status sang CANCELLED, ghi sổ IN_RETURN hoàn lại on_hand | **PASS** |
-| **TC-RSE-01** | Giữ hàng thành công khi đủ hàng | OnHand=20, Reserved=5, Available=15. Đặt 10 | Gọi createAndReserve | Thành công, Reserved=15, Available=5 | **PASS** |
-| **TC-RSE-02** | Chặn bán vượt tồn khả dụng | Available=5. Đặt mua 10 | Gọi createAndReserve | Bắn lỗi `IV40901` (Không đủ hàng khả dụng), rollback toàn bộ đơn | **PASS** |
-| **TC-RSE-03** | Chống Deadlock sắp xếp SKU | 2 luồng: T1 mua (SKU_A, SKU_B); T2 mua (SKU_B, SKU_A) | Thực thi đồng thời 2 luồng | Hệ thống luôn khóa theo thứ tự sku_id tăng dần, 0 deadlock | **PASS** |
-| **TC-RSE-04** | Tự động hủy đơn quá hạn giữ hàng | Đơn RESERVED quá hạn 15 phút | Gọi cancelExpiredReservations | Đơn chuyển sang CANCELLED, tự động nhả reserved | **PASS** |
-| **TC-TRN-01** | Tạo phiếu chuyển kho nháp | Chi nhánh A (nguồn), Chi nhánh B (đích) | Gọi POST `/api/v1/transfers` | Phiếu DRAFT, tồn cả 2 kho chưa đổi | **PASS** |
-| **TC-TRN-02** | Xuất chuyển kho (Dispatch) | Phiếu DRAFT, kho A đủ tồn | Gọi POST `/api/v1/transfers/{id}/dispatch` | Trạng thái DISPATCHED, kho A giảm onHand ghi sổ `OUT_TRANSFER` | **PASS** |
-| **TC-TRN-03** | Nhận chuyển kho (Receive) | Phiếu DISPATCHED | Gọi POST `/api/v1/transfers/{id}/receive` | Trạng thái RECEIVED, kho B tăng onHand ghi sổ `IN_TRANSFER` | **PASS** |
-| **TC-TRN-04** | Hủy phiếu chuyển khi đang nháp | Phiếu DRAFT | Gọi POST `/api/v1/transfers/{id}/cancel` | Phiếu sang CANCELLED | **PASS** |
-| **TC-STK-01** | Tạo đợt kiểm kê | Chi nhánh STORE-1 | Gọi POST `/api/v1/stocktakes` | Tạo OPEN, chụp tự động onHand hiện hành vào systemQty | **PASS** |
-| **TC-STK-02** | Ghi nhận số đếm thực tế | SystemQty=20, thực tế đếm 18 | Gọi POST `/api/v1/stocktakes/{id}/counts` | CountedQty=18, Difference=-2 | **PASS** |
-| **TC-STK-03** | Duyệt kiểm kê cân chỉnh tồn | Difference=-2 (thiếu) | Gọi POST `/api/v1/stocktakes/{id}/approve` | Trạng thái APPROVED, ghi sổ OUT_ADJUST số lượng 2 vào kho | **PASS** |
-| **TC-RPT-01** | Tính toán báo cáo lợi nhuận | Đơn bán 2 cái giá bán 150k, giá vốn chụp 100k | Gọi GET `/api/v1/reports/profit` | Revenue=300k, COGS=200k, GrossProfit=100k, Margin=33.3% | **PASS** |
-| **TC-RPT-02** | Xuất báo cáo CSV | Đã có dữ liệu bán hàng | Gọi GET `/api/v1/reports/profit/export` | Trả về stream text/csv UTF-8 đầy đủ các cột | **PASS** |
-| **TC-SIM-01** | Mô phỏng Flash Sale 20 luồng | Tồn Available=10. 20 đơn x 1 | Gọi POST `/api/v1/simulator/orders` | 10 đơn thành công, 10 đơn bị từ chối; Tồn kho cuối cùng = 0 (không âm) | **PASS** |
-| **TC-WHK-01** | Nhận Webhook sàn TMĐT | Payload từ Shopee, TikTok Shop | Gọi POST `/api/v1/webhooks/shopee` | Đơn hàng được tạo và giữ hàng tự động, chống trùng lặp externalOrderId | **PASS** |
+Cột "Bằng chứng" nêu test tự động trong `backend/src/test` (`*Test` = unit, `*IT` = tích hợp với PostgreSQL thật) hoặc collection Postman `OISM_Core_Auth_Inv_Ord_Pos_Sim`. Kết quả: `./mvnw verify` 115 unit + 59 tích hợp đạt; newman 244/244 assertion đạt.
+
+| Mã TC | Phân hệ / Chức năng | Điều kiện & Dữ liệu đầu vào | Các bước thực hiện | Kết quả mong đợi | Bằng chứng | Trạng thái |
+|---|---|---|---|---|---|---|
+| **TC-ORD-01** | Tạo đơn nháp (Draft) | Chi nhánh active, SKU hợp lệ | `POST /api/v1/orders` với `items` | Đơn `DRAFT`, tổng tiền theo giá bán lẻ, tồn chưa đổi, lịch sử `null→DRAFT` | `OrderApiIT.createsDraftOrderWithTotalAndHistory` | **PASS** |
+| **TC-ORD-02** | Giữ hàng cho đơn nháp | Đơn `DRAFT` | `POST /orders/{id}/reserve` | `RESERVED`, `reserved` tăng, `available` giảm, `reserved_until` = now + 30 phút | `OrderLifecycleIT.cancelReservedReleasesAndCancelConfirmedReturnsStockWithLedger`; Postman 5 | **PASS** |
+| **TC-ORD-03** | Xác nhận đơn | Đơn `RESERVED` | `POST /orders/{id}/confirm` | `CONFIRMED`; `reserved` và `on_hand` giảm; sổ cái `OUT`/`SALE`; `cost_price` chụp từ `avg_cost` | `ReservationServiceTest.confirm_releasesReserved_capturesAvgCost_andPostsLedger`; Postman 5 (kiểm `costPrice > 0`) | **PASS** |
+| **TC-ORD-04** | Hoàn tất đơn | Đơn `CONFIRMED` | `POST /orders/{id}/complete` | `COMPLETED`; hoàn tất đơn `DRAFT` → 409 `OD40901` | `OrderStateMachineTest`; Postman 5 | **PASS** |
+| **TC-ORD-05** | Hủy đơn đang giữ | Đơn `RESERVED` | `POST /orders/{id}/cancel` kèm lý do | `CANCELLED`, nhả `reserved`; thiếu lý do → 400 `OD40001` | `OrderLifecycleIT.cancelReservedReleasesAndCancelConfirmedReturnsStockWithLedger`; Postman 5 | **PASS** |
+| **TC-ORD-06** | Hủy đơn đã xác nhận | Đơn `CONFIRMED` | `POST /orders/{id}/cancel` kèm lý do | `CANCELLED`; `on_hand` tăng lại; sổ cái `IN`/`RETURN` với giá vốn đã chụp | `OrderLifecycleIT.cancelReservedReleasesAndCancelConfirmedReturnsStockWithLedger` | **PASS** |
+| **TC-RSE-01** | Giữ hàng khi đủ | OnHand=20, Reserved=5, Available=15; đặt 10 | Giữ hàng | Thành công, Reserved=15, Available=5 | `ReservationServiceTest.reserve_success_whenAvailableIsSufficient` | **PASS** |
+| **TC-RSE-02** | Chặn bán vượt | Available=5; đặt 10 | Giữ hàng | 409 `IV40901`, hoàn tác toàn bộ đơn | `ReservationServiceTest.reserve_throwsIV40901_whenAvailableIsInsufficient`; `TransactionRollbackIT` | **PASS** |
+| **TC-RSE-03** | Không deadlock khi khóa nhiều SKU | 20 đơn đồng thời, nửa đặt (A, B), nửa đặt (B, A) | Gửi đồng thời qua webhook | Cả 20 đơn giữ hàng thành công (201), không lỗi 500/deadlock; `reserved` mỗi SKU = 20 | `OrderLifecycleIT.concurrentOrdersLockingSkusInOppositeOrderNeverDeadlock` | **PASS** |
+| **TC-RSE-04** | Tự hủy đơn giữ quá hạn | Đơn `RESERVED` đã quá `reserved_until` | Tác vụ nền `cancelExpiredReservations` (mỗi 60 giây) | `CANCELLED`, lý do "Quá hạn giữ hàng", nhả `reserved` | `OrderLifecycleIT.expiredReservationIsCancelledAutomaticallyAndReleased`; Docker: đơn `DH-20261110-1344` tự hủy sau 105 giây (UAT Sprint 4, kịch bản 3) | **PASS** |
+| **TC-TRN-01** | Tạo phiếu chuyển nháp | Chi nhánh A (nguồn), B (đích) | `POST /api/v1/transfers` | Phiếu `DRAFT`, tồn 2 kho chưa đổi; trùng chi nhánh → 400 `IV40001` | `StockTransferServiceTest.create_success_whenValidBranchesAndSkus`, `create_fails_whenSameBranches` | **PASS** |
+| **TC-TRN-02** | Xuất chuyển kho | Phiếu `DRAFT`, kho A đủ tồn | `POST /transfers/{id}/dispatch` | `IN_TRANSIT`; kho A giảm, sổ cái `OUT`/`TRANSFER_OUT`; vượt tồn → 409 `IV40901` | `StockTransferServiceTest.dispatch_movesToInTransit_andPostsLedgerOut`; Postman 4 | **PASS** |
+| **TC-TRN-03** | Nhận chuyển kho | Phiếu `IN_TRANSIT` | `POST /transfers/{id}/receive` | `RECEIVED`; kho B tăng, sổ cái `IN`/`TRANSFER_IN` | `StockTransferServiceTest.receive_movesToReceived_andPostsLedgerIn`; Postman 4 | **PASS** |
+| **TC-TRN-04** | Hủy phiếu chuyển | Phiếu `DRAFT` / `IN_TRANSIT` | `POST /transfers/{id}/cancel` | `DRAFT` → `CANCELLED`, tồn không đổi; phiếu đã xuất → 409 `IV40902` | `OrderLifecycleIT.draftTransferCanBeCancelledButDispatchedCannot` | **PASS** |
+| **TC-STK-01** | Mở phiên kiểm kê | Chi nhánh có tồn | `POST /api/v1/stocktakes` | `OPEN`, chụp `on_hand` vào `systemQuantity` | `StocktakeServiceTest.create_capturesSystemQuantityFromOnHand`; Postman 4 | **PASS** |
+| **TC-STK-02** | Ghi số đếm | systemQuantity=18, đếm 17 | `PUT /stocktakes/{id}/counts` `{counts:[{skuId, countedQuantity}]}` | countedQuantity=17, difference=-1 | `StocktakeServiceTest.recordCounts_updatesCountedAndDifference`; Postman 4 | **PASS** |
+| **TC-STK-03** | Duyệt kiểm kê | difference=-1; người duyệt là Owner | `POST /stocktakes/{id}/approve` | `APPROVED`, sổ cái `OUT`/`ADJUST` 1 cái; Staff duyệt → 403 `AU40301`; sửa sau duyệt → 409 `IV40902` | `StocktakeServiceTest.approve_createsAdjustLedgerEntry_forVariance`; Postman 4 | **PASS** |
+| **TC-RPT-01** | Báo cáo lợi nhuận gộp | 2 đơn POS × 2 cái, giá bán 150.000, giá vốn 100.000 | `GET /api/v1/reports/profit` | Doanh thu 600.000; giá vốn 400.000; lợi nhuận gộp 200.000; biên 0,3333; đơn Draft/Reserved không tính | `ProfitReportIT.profitReportMatchesHandCalculationAndFilters`; Docker UAT Sprint 4 kịch bản 4 | **PASS** |
+| **TC-RPT-02** | Xuất CSV | Có đơn đã bán | `GET /reports/profit/export` | `text/csv` UTF-8 có BOM, chi tiết từng dòng hàng và dòng TỔNG CỘNG, số dùng dấu chấm | `ProfitReportServiceTest.csvHasDotDecimalsAndTotals`; `ProfitReportIT` | **PASS** |
+| **TC-SIM-01** | Flash Sale qua Simulator | SKU còn 1; 50 đơn × 1 cái (NFR-PERF-02) | `POST /api/v1/simulator/orders` | 1 đơn giữ hàng, 49 lỗi `IV40901`, `available` = 0 | `FlashSaleIT.simulator_50ConcurrentOrders_1Stock_exactlyOneReserved`; Docker: xem `kich-ban-flash-sale.md` | **PASS** |
+| **TC-WHK-01** | Webhook sàn | Payload Shopee/TikTok Shop, header `X-Api-Key` | `POST /api/v1/webhooks/shopee` | Tạo đơn `RESERVED` cho đúng tenant của key; trùng mã đơn ngoài → 409 `OD40902`; thiếu/sai key → 401 `OD40101` | `WebhookIT` (7 case) | **PASS** |
