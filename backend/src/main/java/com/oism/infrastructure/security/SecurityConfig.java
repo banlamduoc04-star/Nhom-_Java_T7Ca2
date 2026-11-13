@@ -1,5 +1,6 @@
 package com.oism.infrastructure.security;
 
+import com.oism.application.order.ChannelCredentialService;
 import com.oism.web.error.RestAccessDeniedHandler;
 import com.oism.web.error.RestAuthenticationEntryPoint;
 import org.springframework.beans.factory.annotation.Value;
@@ -29,8 +30,9 @@ import java.util.List;
 @EnableMethodSecurity
 public class SecurityConfig {
 
-    private static final String[] PUBLIC_POST = {
-            "/api/v1/auth/register", "/api/v1/auth/login", "/api/v1/auth/refresh", "/api/v1/webhooks/**"
+        private static final String[] PUBLIC_POST = {
+            "/api/v1/auth/register", "/api/v1/auth/login",
+            "/api/v1/auth/refresh"
     };
     private static final String[] PUBLIC_DOCS = {
             "/v3/api-docs/**", "/swagger-ui/**", "/swagger-ui.html", "/actuator/health", "/ws/**"
@@ -39,6 +41,7 @@ public class SecurityConfig {
     @Bean
     SecurityFilterChain securityFilterChain(HttpSecurity http,
                                             JwtService jwtService,
+                                            ChannelCredentialService channelCredentialService,
                                             RestAuthenticationEntryPoint entryPoint,
                                             RestAccessDeniedHandler deniedHandler) throws Exception {
         http
@@ -50,8 +53,13 @@ public class SecurityConfig {
                         .requestMatchers(HttpMethod.OPTIONS, "/**").permitAll()
                         .requestMatchers(HttpMethod.POST, PUBLIC_POST).permitAll()
                         .requestMatchers(PUBLIC_DOCS).permitAll()
+                        // FR-SIM-01: webhook san chi chap nhan API key cua tenant (X-Api-Key), khong dung JWT
+                        .requestMatchers(HttpMethod.POST, WebhookApiKeyFilter.WEBHOOK_PATH_PREFIX + "*")
+                        .hasRole(WebhookApiKeyFilter.ROLE_WEBHOOK)
+                        .requestMatchers(WebhookApiKeyFilter.WEBHOOK_PATH_PREFIX + "**").denyAll()
                         .anyRequest().authenticated())
-                .addFilterBefore(new JwtAuthenticationFilter(jwtService), UsernamePasswordAuthenticationFilter.class);
+                .addFilterBefore(new JwtAuthenticationFilter(jwtService), UsernamePasswordAuthenticationFilter.class)
+                .addFilterAfter(new WebhookApiKeyFilter(channelCredentialService), JwtAuthenticationFilter.class);
         return http.build();
     }
 
@@ -66,7 +74,7 @@ public class SecurityConfig {
         CorsConfiguration config = new CorsConfiguration();
         config.setAllowedOrigins(Arrays.stream(allowedOrigins.split(",")).map(String::trim).toList());
         config.setAllowedMethods(List.of("GET", "POST", "PUT", "PATCH", "DELETE", "OPTIONS"));
-        config.setAllowedHeaders(List.of("Authorization", "Content-Type", "Accept"));
+        config.setAllowedHeaders(List.of("Authorization", "Content-Type", "Accept", WebhookApiKeyFilter.API_KEY_HEADER));
         config.setMaxAge(3600L);
         UrlBasedCorsConfigurationSource source = new UrlBasedCorsConfigurationSource();
         source.registerCorsConfiguration("/**", config);

@@ -138,6 +138,28 @@ POS chạy được **không cần backend** bằng dữ liệu giả: tạo fil
 
 Trỏ frontend tới backend khác: đặt `VITE_API_URL` (mặc định `http://localhost:8080/api/v1`) trong `.env.local`. Backend chỉ cho phép CORS từ các địa chỉ trong `OISM_CORS_ORIGINS` (mặc định `http://localhost:5173`; trong `docker-compose.yml` có thêm 3000, 3001).
 
+## 4.5. Kiểm thử trên bản Docker (Postman, E2E)
+
+Chạy khi `docker compose --profile frontend up -d --build` đã xong và 4 container `healthy` (`docker compose ps`).
+
+```bash
+# Postman: 2 collection, tự đăng ký cửa hàng riêng mỗi lần chạy
+npx newman run postman/OISM_Core_Auth_Inv_Ord_Pos_Sim.postman_collection.json -e postman/OISM_Local.postman_environment.json
+npx newman run postman/OISM_M3_Product_and_Report.postman_collection.json -e postman/OISM_Local.postman_environment.json
+```
+
+```bash
+# E2E Playwright: Admin (desktop) + POS (máy tính, tablet, điện thoại)
+cd e2e
+npm ci
+npx playwright install chromium
+npm test
+```
+
+Đổi địa chỉ khi không dùng cổng mặc định: `E2E_API_URL` (mặc định `http://localhost:8080/api/v1`), `E2E_ADMIN_URL` (`http://localhost:3000`), `E2E_POS_URL` (`http://localhost:3001`); với Postman thêm `--env-var baseUrl=http://localhost:8080`.
+
+Đo hiệu năng (chỉ trên CSDL kiểm thử): tạo một cửa hàng qua API rồi chạy `backend/scripts/generate_1m_ledger.sql`, `generate_100k_orders.sql`, `explain_ledger_queries.sql` với `psql -v tenant_id=<uuid>`.
+
 ## 5. Thử nhanh API bằng Swagger
 
 1. Mở http://localhost:8080/swagger-ui.html.
@@ -176,6 +198,7 @@ Mở pull request vào `develop`, điền mẫu PR. Chỉ merge khi **CI xanh** 
 | Trình duyệt báo CORS | Địa chỉ frontend chưa có trong `OISM_CORS_ORIGINS` | Thêm địa chỉ đó rồi chạy lại backend |
 | Admin đăng nhập xong bị đá về `/login` | Token hết hạn và refresh thất bại | Đăng nhập lại; kiểm tra giờ máy |
 | Cashier đăng nhập Admin thấy "dùng ứng dụng POS" | Đúng thiết kế (FR-AUTH-03) | Dùng POS |
+| Container `frontend-*` báo `unhealthy` dù trang vẫn mở được | Image cũ dùng healthcheck `localhost` (IPv6 trong nginx-alpine) | `docker compose --profile frontend up -d --build` để build lại |
 
 ## 8. Việc cần làm trước khi tạo pull request
 

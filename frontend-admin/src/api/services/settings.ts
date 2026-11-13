@@ -1,5 +1,5 @@
 import { api, data } from '../client'
-import type { Branch, TenantSettings, UserView } from '../types'
+import type { Branch, ChannelKeyView, IssuedChannelKey, TenantSettings, UserView, WebhookChannel } from '../types'
 
 export const branchApi = {
   list: () => data(api.get<Branch[]>('/branches')),
@@ -26,6 +26,9 @@ export const branchAdminApi = {
 
 export const settingsApi = {
   get: () => data(api.get<TenantSettings>('/settings')),
-  update: (reservationMinutes: number) =>
-    data(api.put<TenantSettings>('/settings', { reservationMinutes })),
+  update: (body: { storeName?: string; reservationMinutes: number }) =>
+    data(api.put<TenantSettings>('/settings', body)),
+  /** (bo sung FR-SIM-01) API key webhook san */
+  channelKeys: () => data(api.get<ChannelKeyView[]>('/settings/channel-keys')),
+  issueChannelKey: (channel: WebhookChannel) => data(api.post<IssuedChannelKey>(`/settings/channel-keys/${channel}`)),
 }

@@ -1,5 +1,6 @@
 package com.oism.application.auth;
 
+import com.oism.application.common.Sha256;
 import com.oism.domain.exception.BusinessException;
 import com.oism.domain.exception.ErrorCode;
 import com.oism.domain.model.AppUser;
@@ -16,14 +17,10 @@ import org.springframework.security.crypto.password.PasswordEncoder;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
-import java.nio.charset.StandardCharsets;
-import java.security.MessageDigest;
-import java.security.NoSuchAlgorithmException;
 import java.security.SecureRandom;
 import java.time.Duration;
 import java.time.Instant;
 import java.util.Base64;
-import java.util.HexFormat;
 import java.util.Optional;
 import java.util.UUID;
 
@@ -127,19 +124,31 @@ public class AuthService {
         refreshTokenRepository.save(stored);
         return issueTokens(user);
     }
-
-    /** FR-AUTH-02: dang xuat thu hoi refresh token. Idempotent: token la/da thu hoi van tra thanh cong. */
+        /** Đăng xuất: thu hồi toàn bộ refresh token của người dùng. */
     @Transactional
-    public void logout(AuthenticatedUser current, String rawRefreshToken) {
-        refreshTokenRepository.findByTokenHash(hash(rawRefreshToken))
-                .filter(token -> token.getUserId().equals(current.userId()))
-                .ifPresent(token -> {
-                    token.revoke();
-                    refreshTokenRepository.save(token);
-                });
+    public void logout(AuthenticatedUser current, String refreshToken) {
+        if (refreshToken != null && !refreshToken.isBlank()) {
+            refreshTokenRepository.findByTokenHash(hash(refreshToken.trim()))
+                    .ifPresent(token -> {
+                        token.revoke();
+                        refreshTokenRepository.save(token);
+                    });
+        }
+        // Hoặc thu hồi tất cả các token đang hoạt động của user này
+        refreshTokenRepository.revokeAllByUserId(current.userId());
     }
-
-    /** GET /me. */
+       /** Nguoi dung tu doi mat khau. Sai mat khau cu -> AU40001 (khong dung 401 de client khong tu refresh). */
+    @Transactional
+    public void changePassword(AuthenticatedUser current, String currentPassword, String newPassword) {
+        AppUser user = appUserRepository.findByIdAndTenantId(current.userId(), current.tenantId())
+                .orElseThrow(() -> new BusinessException(ErrorCode.AU40401, "Không tìm thấy người dùng"));
+        if (!passwordEncoder.matches(currentPassword, user.getPasswordHash())) {
+            throw new BusinessException(ErrorCode.AU40001, "Mật khẩu hiện tại không đúng");
+        }
+        user.setPasswordHash(passwordEncoder.encode(newPassword));
+        appUserRepository.save(user);
+        refreshTokenRepository.revokeAllByUserId(user.getId());
+    }
     @Transactional(readOnly = true)
     public UserProfile me(AuthenticatedUser current) {
         AppUser user = appUserRepository.findByIdAndTenantId(current.userId(), current.tenantId())
@@ -180,12 +189,7 @@ public class AuthService {
     }
 
     static String hash(String rawToken) {
-        try {
-            MessageDigest digest = MessageDigest.getInstance("SHA-256");
-            return HexFormat.of().formatHex(digest.digest(rawToken.getBytes(StandardCharsets.UTF_8)));
-        } catch (NoSuchAlgorithmException e) {
-            throw new IllegalStateException("SHA-256 không khả dụng", e);
-        }
+        return Sha256.hex(rawToken);
     }
 
     static String normalizeEmail(String email) {

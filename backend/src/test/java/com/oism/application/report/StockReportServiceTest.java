@@ -2,17 +2,12 @@ package com.oism.application.report;
 
 import com.oism.domain.model.Branch;
 import com.oism.domain.model.BranchType;
-import com.oism.domain.model.OrderChannel;
-import com.oism.domain.model.OrderItem;
-import com.oism.domain.model.OrderStatus;
 import com.oism.domain.model.Product;
-import com.oism.domain.model.SalesOrder;
 import com.oism.domain.model.Sku;
 import com.oism.domain.model.StockBalance;
 import com.oism.domain.repository.BranchRepository;
-import com.oism.domain.repository.OrderItemRepository;
 import com.oism.domain.repository.ProductRepository;
-import com.oism.domain.repository.SalesOrderRepository;
+import com.oism.domain.repository.SalesAnalyticsRepository;
 import com.oism.domain.repository.SkuRepository;
 import com.oism.domain.repository.StockBalanceRepository;
 import org.junit.jupiter.api.BeforeEach;
@@ -45,8 +40,7 @@ class StockReportServiceTest {
     @Mock SkuRepository skuRepository;
     @Mock ProductRepository productRepository;
     @Mock BranchRepository branchRepository;
-    @Mock SalesOrderRepository salesOrderRepository;
-    @Mock OrderItemRepository orderItemRepository;
+    @Mock SalesAnalyticsRepository salesAnalytics;
 
     StockReportService service;
 
@@ -59,15 +53,15 @@ class StockReportServiceTest {
     void setup() {
         service = new StockReportService(
                 stockBalanceRepository, skuRepository, productRepository,
-                branchRepository, salesOrderRepository, orderItemRepository);
+                branchRepository, salesAnalytics);
 
         Branch branch = new Branch(tenantId, "Kho trung tâm", BranchType.WAREHOUSE);
         ReflectionTestUtils.setField(branch, "id", branchId);
-        when(branchRepository.findAllById(any())).thenReturn(List.of(branch));
+        when(branchRepository.findByTenantIdOrderByNameAsc(tenantId)).thenReturn(List.of(branch));
 
         Product product = new Product(tenantId, null, null, "Váy nữ mùa hè", null, false);
         ReflectionTestUtils.setField(product, "id", prodId);
-        when(productRepository.findAllById(any())).thenReturn(List.of(product));
+        when(productRepository.findByTenantIdAndIdIn(any(), any())).thenReturn(List.of(product));
 
         Sku sku = new Sku(tenantId, prodId, "DRESS-RED", Map.of(), null,
                 BigDecimal.valueOf(500_000), BigDecimal.valueOf(450_000), 5);
@@ -95,20 +89,30 @@ class StockReportServiceTest {
     @Test
     @DisplayName("Top bán chạy tính từ đơn CONFIRMED/COMPLETED")
     void testGetTopSelling() {
-        SalesOrder order = new SalesOrder(tenantId, branchId, "ORD-001", OrderChannel.POS, null,
-                OrderStatus.COMPLETED, null, null, null, BigDecimal.valueOf(500_000), null);
-        UUID orderId = UUID.randomUUID();
-        ReflectionTestUtils.setField(order, "id", orderId);
-
-        OrderItem item = new OrderItem(tenantId, orderId, skuId, 5, BigDecimal.valueOf(500_000));
-
-        when(salesOrderRepository.findAll(any(Specification.class))).thenReturn(List.of(order));
-        when(orderItemRepository.findByTenantIdAndOrderIdIn(any(), any())).thenReturn(List.of(item));
+        when(salesAnalytics.topSkusByQuantity(any(), any(), org.mockito.ArgumentMatchers.anyInt())).thenReturn(List.of(
+                new SalesAnalyticsRepository.SkuSales(skuId, 5, BigDecimal.valueOf(2_500_000), BigDecimal.ZERO)));
 
         List<StockReportViews.TopSellingItem> top = service.getTopSelling(tenantId, 30, 10);
 
         assertFalse(top.isEmpty());
         assertEquals(5, top.get(0).quantitySold());
-        assertEquals(BigDecimal.valueOf(2_500_000), top.get(0).totalRevenue());
+        assertEquals(0, BigDecimal.valueOf(2_500_000).compareTo(top.get(0).totalRevenue()));
+        assertEquals("Váy nữ mùa hè", top.get(0).productName());
+    }
+
+    @Test
+    @DisplayName("Hàng tồn chậm: còn tồn nhưng không có trong danh sách SKU đã bán")
+    void testSlowMovingExcludesSoldSkus() {
+        UUID soldSku = UUID.randomUUID();
+        when(salesAnalytics.soldSkuIds(any(), any())).thenReturn(List.of(soldSku));
+        when(stockBalanceRepository.findAll(any(Specification.class))).thenReturn(List.of(
+                new StockBalance(tenantId, branchId, skuId, 7, 0),
+                new StockBalance(tenantId, branchId, soldSku, 3, 0)));
+
+        List<StockReportViews.SlowMovingItem> slow = service.getSlowMoving(tenantId, 30);
+
+        assertEquals(1, slow.size());
+        assertEquals(skuId, slow.get(0).skuId());
+        assertEquals(0, BigDecimal.valueOf(2_100_000).compareTo(slow.get(0).totalValue()));
     }
 }

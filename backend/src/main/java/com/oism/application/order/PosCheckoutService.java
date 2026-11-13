@@ -1,9 +1,24 @@
 package com.oism.application.order;
 
-import com.oism.application.inventory.StockAlertService;
+import java.math.BigDecimal;
+import java.security.SecureRandom;
+import java.time.Instant;
+import java.time.LocalDate;
+import java.time.ZoneOffset;
+import java.time.format.DateTimeFormatter;
+import java.util.List;
+import java.util.Map;
+import java.util.UUID;
+import java.util.stream.Collectors;
+
+import org.springframework.context.ApplicationEventPublisher;
+import org.springframework.stereotype.Service;
+import org.springframework.transaction.annotation.Transactional;
+
 import com.oism.domain.event.OrderCreatedEvent;
 import com.oism.domain.exception.BusinessException;
 import com.oism.domain.exception.ErrorCode;
+import com.oism.domain.model.AppUser;
 import com.oism.domain.model.Branch;
 import com.oism.domain.model.CatalogStatus;
 import com.oism.domain.model.OrderChannel;
@@ -13,8 +28,10 @@ import com.oism.domain.model.OrderStatusHistory;
 import com.oism.domain.model.Payment;
 import com.oism.domain.model.PaymentMethod;
 import com.oism.domain.model.Product;
+import com.oism.domain.model.Role;
 import com.oism.domain.model.SalesOrder;
 import com.oism.domain.model.Sku;
+import com.oism.domain.repository.AppUserRepository;
 import com.oism.domain.repository.BranchRepository;
 import com.oism.domain.repository.OrderItemRepository;
 import com.oism.domain.repository.OrderStatusHistoryRepository;
@@ -23,38 +40,25 @@ import com.oism.domain.repository.ProductRepository;
 import com.oism.domain.repository.SalesOrderRepository;
 import com.oism.domain.repository.SkuRepository;
 import com.oism.domain.service.OrderStateMachine;
-import org.springframework.context.ApplicationEventPublisher;
-import org.springframework.stereotype.Service;
-import org.springframework.transaction.annotation.Transactional;
-
-import java.math.BigDecimal;
-import java.security.SecureRandom;
-import java.time.Instant;
-import java.time.LocalDate;
-import java.time.ZoneOffset;
-import java.time.format.DateTimeFormatter;
-import java.util.ArrayList;
-import java.util.List;
-import java.util.Map;
-import java.util.UUID;
-import java.util.stream.Collectors;
 
 /**
- * Xu ly thanh toan POS trong dung mot transaction (FR-POS-04, JC-31):
- * Tao don -> Giu hang -> Xac nhan tru kho -> Hoan tat -> Ghi payment.
+ * Xử lý thanh toán POS trong đúng một transaction (FR-POS-04, JC-31):
+ * Tạo đơn -> Giữ hàng -> Xác nhận trừ kho -> Hoàn tất -> Ghi payment.
+ * Nếu bất kỳ bước nào lỗi, toàn bộ giao dịch rollback (NFR-SEC-02).
  */
 @Service
 public class PosCheckoutService {
+
 
     private final SalesOrderRepository orderRepository;
     private final OrderItemRepository itemRepository;
     private final OrderStatusHistoryRepository historyRepository;
     private final PaymentRepository paymentRepository;
     private final BranchRepository branchRepository;
+    private final AppUserRepository appUserRepository;
     private final SkuRepository skuRepository;
     private final ProductRepository productRepository;
     private final ReservationService reservationService;
-    private final StockAlertService stockAlertService;
     private final ApplicationEventPublisher eventPublisher;
     private final SecureRandom random = new SecureRandom();
 
@@ -63,33 +67,36 @@ public class PosCheckoutService {
                               OrderStatusHistoryRepository historyRepository,
                               PaymentRepository paymentRepository,
                               BranchRepository branchRepository,
+                              AppUserRepository appUserRepository,
                               SkuRepository skuRepository,
                               ProductRepository productRepository,
                               ReservationService reservationService,
-                              StockAlertService stockAlertService,
                               ApplicationEventPublisher eventPublisher) {
         this.orderRepository = orderRepository;
         this.itemRepository = itemRepository;
         this.historyRepository = historyRepository;
         this.paymentRepository = paymentRepository;
         this.branchRepository = branchRepository;
+        this.appUserRepository = appUserRepository;
         this.skuRepository = skuRepository;
         this.productRepository = productRepository;
         this.reservationService = reservationService;
-        this.stockAlertService = stockAlertService;
         this.eventPublisher = eventPublisher;
     }
 
     @Transactional
     public PosCheckoutResponse checkout(UUID tenantId, UUID userId, String cashierName, PosCheckoutCommand cmd) {
+        // 1. Kiểm tra chi nhánh hợp lệ
         Branch branch = branchRepository.findByIdAndTenantId(cmd.branchId(), tenantId)
                 .filter(Branch::isActive)
                 .orElseThrow(() -> new BusinessException(ErrorCode.OD40001, "Chi nhánh không hợp lệ hoặc đã bị khóa"));
+        assertCanSellAt(tenantId, userId, branch.getId());
 
         if (cmd.lines() == null || cmd.lines().isEmpty()) {
             throw new BusinessException(ErrorCode.OD40001, "Giỏ hàng không có sản phẩm");
         }
 
+        // 2. Lấy danh sách SKU và tính tổng tiền
         List<UUID> skuIds = cmd.lines().stream().map(PosCheckoutCommand.PosLine::skuId).distinct().toList();
         Map<UUID, Sku> skus = skuRepository.findByTenantIdAndIdIn(tenantId, skuIds).stream()
                 .collect(Collectors.toMap(Sku::getId, s -> s));
@@ -110,7 +117,7 @@ public class PosCheckoutService {
             total = total.add(sku.getRetailPrice().multiply(BigDecimal.valueOf(line.quantity())));
         }
 
-        // Kiem tra tien khach dua
+        // 3. Kiểm tra tiền khách đưa (nếu là CASH)
         BigDecimal cashReceived;
         BigDecimal changeAmount;
         if (cmd.paymentMethod() == PaymentMethod.CASH) {
@@ -124,7 +131,7 @@ public class PosCheckoutService {
             changeAmount = BigDecimal.ZERO;
         }
 
-        // 1. Tao don POS o trang thai DRAFT
+        // 4. Tạo đơn POS ở trạng thái DRAFT
         String orderCode = newCode(tenantId);
         SalesOrder order = orderRepository.save(new SalesOrder(
                 tenantId, cmd.branchId(), orderCode, OrderChannel.POS, null,
@@ -136,52 +143,42 @@ public class PosCheckoutService {
                 .toList();
         itemRepository.saveAll(items);
 
-        // 2. Giu hang (RESERVED)
+        // 5. Giữ hàng (RESERVED)
         OrderStateMachine.assertTransition(OrderStatus.DRAFT, OrderStatus.RESERVED);
         reservationService.reserve(tenantId, cmd.branchId(), items);
         order.moveTo(OrderStatus.RESERVED);
 
-        // 3. Xac nhan tru kho (CONFIRMED) & chup gia von
+        // 6. Xác nhận trừ kho (CONFIRMED) & chụp giá vốn
         OrderStateMachine.assertTransition(OrderStatus.RESERVED, OrderStatus.CONFIRMED);
         reservationService.confirm(tenantId, cmd.branchId(), order.getId(), items, userId);
         order.moveTo(OrderStatus.CONFIRMED);
 
-        // 4. Hoan tat don hang (COMPLETED)
+        // 7. Hoàn tất đơn hàng (COMPLETED)
         OrderStateMachine.assertTransition(OrderStatus.CONFIRMED, OrderStatus.COMPLETED);
         order.moveTo(OrderStatus.COMPLETED);
         orderRepository.save(order);
 
-        // 5. Ghi nhan thanh toan
+        // 8. Ghi nhận thanh toán
         paymentRepository.save(new Payment(tenantId, order.getId(), cmd.paymentMethod(), total, cashReceived, changeAmount));
 
-        // 6. Ghi lich su don
-        historyRepository.save(new OrderStatusHistory(tenantId, order.getId(), null, OrderStatus.COMPLETED,
+        // 9. Ghi lịch sử đơn (đầy đủ 4 bước chuyển trạng thái)
+        historyRepository.save(new OrderStatusHistory(tenantId, order.getId(), null, OrderStatus.DRAFT,
+                userId, "Tạo đơn POS"));
+        historyRepository.save(new OrderStatusHistory(tenantId, order.getId(), OrderStatus.DRAFT, OrderStatus.RESERVED,
+                userId, "Giữ hàng"));
+        historyRepository.save(new OrderStatusHistory(tenantId, order.getId(), OrderStatus.RESERVED, OrderStatus.CONFIRMED,
+                userId, "Xác nhận trừ kho"));
+        historyRepository.save(new OrderStatusHistory(tenantId, order.getId(), OrderStatus.CONFIRMED, OrderStatus.COMPLETED,
                 userId, "Thanh toán POS thành công"));
 
-        // 7. Kiem tra canh bao ton thap cho tung SKU
-        for (UUID skuId : skuIds) {
-            try {
-                stockAlertService.checkStockLevel(tenantId, cmd.branchId(), skuId);
-            } catch (Exception e) {
-                // Khong lam fail checkout neu alert loi
-            }
-        }
+        // 10. Cảnh báo tồn thấp (FR-REP-03) đã được đánh giá trong cùng giao dịch khi trừ kho qua sổ cái
 
-        // 8. Phat su kien realtime
+        // 11. Phát sự kiện realtime
         eventPublisher.publishEvent(new OrderCreatedEvent(
                 tenantId, order.getId(), order.getCode(), total, OrderChannel.POS.name(), cashierName, Instant.now()));
 
-        // 9. Tra ve response in hoa don
-        List<UUID> prodIds = skus.values().stream().map(Sku::getProductId).distinct().toList();
-        Map<UUID, String> prodNames = productRepository.findAllById(prodIds).stream()
-                .collect(Collectors.toMap(Product::getId, Product::getName, (a, b) -> a));
-
-        List<PosCheckoutResponse.PosReceiptLine> receiptItems = items.stream().map(it -> {
-            Sku sku = skus.get(it.getSkuId());
-            String pName = prodNames.getOrDefault(sku.getProductId(), sku.getCode());
-            BigDecimal lineTotal = it.getUnitPrice().multiply(BigDecimal.valueOf(it.getQuantity()));
-            return new PosCheckoutResponse.PosReceiptLine(it.getSkuId(), sku.getCode(), pName, it.getQuantity(), it.getUnitPrice(), lineTotal);
-        }).toList();
+        // 12. Trả về response in hóa đơn
+        List<PosCheckoutResponse.PosReceiptLine> receiptItems = receiptLines(tenantId, items, skus);
 
         return new PosCheckoutResponse(
                 order.getId(),
@@ -199,6 +196,56 @@ public class PosCheckoutService {
         );
     }
 
+    /**
+     * GET /pos/orders/{id}/receipt (Danh sach API dong POS): du lieu in lai hoa don 80 mm cua don POS.
+     * Khong thay, khac tenant hoac khong phai don POS -> 404 OD40401; Cashier chi xem hoa don cua chi nhanh duoc gan.
+     */
+    @Transactional(readOnly = true)
+    public PosCheckoutResponse receipt(UUID tenantId, UUID userId, UUID orderId) {
+        SalesOrder order = orderRepository.findByIdAndTenantId(orderId, tenantId)
+                .filter(o -> o.getChannel() == OrderChannel.POS)
+                .orElseThrow(() -> new BusinessException(ErrorCode.OD40401, "Không tìm thấy hóa đơn POS"));
+        assertCanSellAt(tenantId, userId, order.getBranchId());
+        Payment payment = paymentRepository.findByTenantIdAndOrderId(tenantId, orderId)
+                .orElseThrow(() -> new BusinessException(ErrorCode.OD40401, "Đơn chưa được thanh toán tại POS"));
+        Branch branch = branchRepository.findByIdAndTenantId(order.getBranchId(), tenantId)
+                .orElseThrow(() -> new BusinessException(ErrorCode.AU40401, "Không tìm thấy chi nhánh"));
+
+        List<OrderItem> items = itemRepository.findByTenantIdAndOrderId(tenantId, orderId);
+        Map<UUID, Sku> skus = skuRepository.findByTenantIdAndIdIn(tenantId,
+                        items.stream().map(OrderItem::getSkuId).distinct().toList()).stream()
+                .collect(Collectors.toMap(Sku::getId, s -> s));
+        String cashierName = order.getCreatedBy() == null ? null
+                : appUserRepository.findByIdAndTenantId(order.getCreatedBy(), tenantId).map(AppUser::getEmail).orElse(null);
+
+        return new PosCheckoutResponse(order.getId(), order.getCode(), order.getStatus(), branch.getId(),
+                branch.getName(), order.getTotalAmount(), payment.getMethod(), payment.getCashReceived(),
+                payment.getChangeAmount(), payment.getCreatedAt(), cashierName, receiptLines(tenantId, items, skus));
+    }
+
+    private List<PosCheckoutResponse.PosReceiptLine> receiptLines(UUID tenantId, List<OrderItem> items, Map<UUID, Sku> skus) {
+        List<UUID> prodIds = skus.values().stream().map(Sku::getProductId).distinct().toList();
+        Map<UUID, String> prodNames = productRepository.findByTenantIdAndIdIn(tenantId, prodIds).stream()
+                .collect(Collectors.toMap(Product::getId, Product::getName, (a, b) -> a));
+        return items.stream().map(it -> {
+            Sku sku = skus.get(it.getSkuId());
+            String skuCode = sku != null ? sku.getCode() : it.getSkuId().toString();
+            String productName = sku != null ? prodNames.getOrDefault(sku.getProductId(), skuCode) : skuCode;
+            BigDecimal lineTotal = it.getUnitPrice().multiply(BigDecimal.valueOf(it.getQuantity()));
+            return new PosCheckoutResponse.PosReceiptLine(it.getSkuId(), skuCode, productName, it.getQuantity(),
+                    it.getUnitPrice(), lineTotal);
+        }).toList();
+    }
+
+    /** FR-AUTH-05: Cashier chi ban duoc tai chi nhanh duoc gan; Owner ban tai moi chi nhanh cua tenant. */
+    private void assertCanSellAt(UUID tenantId, UUID userId, UUID branchId) {
+        AppUser seller = appUserRepository.findByIdAndTenantId(userId, tenantId)
+                .orElseThrow(() -> new BusinessException(ErrorCode.AU40401, "Không tìm thấy người bán"));
+        if (seller.getRole() == Role.CASHIER && !branchId.equals(seller.getBranchId())) {
+            throw new BusinessException(ErrorCode.AU40301, "Thu ngân chỉ được bán tại chi nhánh được gán");
+        }
+    }
+
     private String newCode(UUID tenantId) {
         String date = LocalDate.now(ZoneOffset.UTC).format(DateTimeFormatter.ofPattern("yyMMdd"));
         for (int i = 0; i < 10; i++) {
@@ -210,4 +257,3 @@ public class PosCheckoutService {
         return "POS-" + date + "-" + UUID.randomUUID().toString().substring(0, 8).toUpperCase();
     }
 }
-

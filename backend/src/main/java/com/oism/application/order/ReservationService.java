@@ -2,6 +2,7 @@ package com.oism.application.order;
 
 import com.oism.application.inventory.InventoryLedgerService;
 import com.oism.application.inventory.LedgerEntry;
+import com.oism.application.inventory.StockAlertService;
 import com.oism.domain.exception.BusinessException;
 import com.oism.domain.exception.ErrorCode;
 import com.oism.domain.model.OrderItem;
@@ -21,10 +22,6 @@ import java.util.Comparator;
 import java.util.List;
 import java.util.UUID;
 
-/**
- * Co che giu hang va tru/nha hang chong ban vuot (FR-RSE-01..03, NFR-PERF-02).
- * Khoa dong stock_balance theo thu tu sku_id tang dan de ngan ngua deadlock tuyet doi.
- */
 @Service
 public class ReservationService {
 
@@ -34,21 +31,20 @@ public class ReservationService {
     private final SkuRepository skuRepository;
     private final InventoryLedgerService ledgerService;
     private final OrderItemRepository orderItemRepository;
+    private final StockAlertService stockAlertService;
 
     public ReservationService(StockBalanceRepository stockBalanceRepository,
                               SkuRepository skuRepository,
                               InventoryLedgerService ledgerService,
-                              OrderItemRepository orderItemRepository) {
+                              OrderItemRepository orderItemRepository,
+                              StockAlertService stockAlertService) {
         this.stockBalanceRepository = stockBalanceRepository;
         this.skuRepository = skuRepository;
         this.ledgerService = ledgerService;
         this.orderItemRepository = orderItemRepository;
+        this.stockAlertService = stockAlertService;
     }
 
-    /**
-     * Giu hang (Draft -> Reserved): sap xep theo skuId tang dan, khoa FOR UPDATE tung dong,
-     * kiem tra available = on_hand - reserved >= quantity, neu khong du throw IV40901.
-     */
     @Transactional(propagation = Propagation.MANDATORY)
     public void reserve(UUID tenantId, UUID branchId, List<OrderItem> items) {
         List<OrderItem> sorted = items.stream()
@@ -69,12 +65,11 @@ public class ReservationService {
 
             balance.applyReserved(balance.getReserved() + item.getQuantity());
             stockBalanceRepository.save(balance);
+            // FR-REP-03: giu hang lam giam available (vd don san) -> co the mo canh bao
+            stockAlertService.checkStockLevel(tenantId, branchId, item.getSkuId());
         }
     }
 
-    /**
-     * Nha hang giu (Reserved -> Cancelled): giam reserved cua tung SKU theo thu tu skuId tang dan.
-     */
     @Transactional(propagation = Propagation.MANDATORY)
     public void release(UUID tenantId, UUID branchId, List<OrderItem> items) {
         List<OrderItem> sorted = items.stream()
@@ -87,13 +82,11 @@ public class ReservationService {
 
             balance.applyReserved(Math.max(0, balance.getReserved() - item.getQuantity()));
             stockBalanceRepository.save(balance);
+            // FR-REP-03: nha hang (huy/qua han) tang available -> co the dong canh bao
+            stockAlertService.checkStockLevel(tenantId, branchId, item.getSkuId());
         }
     }
 
-    /**
-     * Xac nhan don (Reserved -> Confirmed): nha reserved, ghi so cai OUT_SALE qua InventoryLedgerService,
-     * va chup cost_price tu avg_cost hien tai cua SKU vao order_item (FR-COST-02).
-     */
     @Transactional(propagation = Propagation.MANDATORY)
     public void confirm(UUID tenantId, UUID branchId, UUID orderId, List<OrderItem> items, UUID userId) {
         List<OrderItem> sorted = items.stream()
@@ -104,19 +97,15 @@ public class ReservationService {
             StockBalance balance = stockBalanceRepository.findForUpdate(tenantId, branchId, item.getSkuId())
                     .orElseThrow(() -> new IllegalStateException("Không khóa được dòng tồn kho"));
 
-            // Giam reserved truoc de tang lai available truoc khi ledgerService.post kiem tra available
             balance.applyReserved(Math.max(0, balance.getReserved() - item.getQuantity()));
             stockBalanceRepository.save(balance);
 
-            // Lay avg_cost hien tai cua SKU de chup vao don hang (FR-COST-02)
             Sku sku = skuRepository.findForUpdate(item.getSkuId(), tenantId)
                     .orElseThrow(() -> new BusinessException(ErrorCode.PR40401, "Không tìm thấy SKU"));
-
             BigDecimal costPrice = sku.getAvgCost();
             item.setCostPrice(costPrice);
             orderItemRepository.save(item);
 
-            // Ghi but toan xuat ban hang vao so cai
             ledgerService.post(new LedgerEntry(
                     tenantId, branchId, item.getSkuId(), StockDirection.OUT, StockReason.SALE,
                     item.getQuantity(), costPrice, REF_TYPE_ORDER, orderId, userId
@@ -124,9 +113,6 @@ public class ReservationService {
         }
     }
 
-    /**
-     * Hoan tra hang (Confirmed -> Cancelled): ghi so cai IN voi StockReason.RETURN de bu lai ton kho.
-     */
     @Transactional(propagation = Propagation.MANDATORY)
     public void returnStock(UUID tenantId, UUID branchId, UUID orderId, List<OrderItem> items, UUID userId) {
         List<OrderItem> sorted = items.stream()

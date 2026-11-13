@@ -7,6 +7,7 @@ import type { ColumnsType } from 'antd/es/table'
 import dayjs from 'dayjs'
 import { branchApi, reportApi, skuApi } from '../../api/services'
 import type { Branch, OrderChannel, ProfitBySku, ProfitReportView, SkuSearchItem } from '../../api/types'
+import { errorText } from '../../api/client'
 
 const money = (v: number | null | undefined) => (v != null ? `${Math.round(v).toLocaleString('vi-VN')} ₫` : '0 ₫')
 
@@ -44,8 +45,8 @@ export default function ProfitReportPage() {
         skuId: skuFilter,
       })
       setData(res)
-    } catch (err: any) {
-      message.error(err.response?.data?.message || 'Không thể tải báo cáo lợi nhuận')
+    } catch (err) {
+      message.error(errorText(err))
     } finally {
       setLoading(false)
     }
@@ -89,7 +90,7 @@ export default function ProfitReportPage() {
       link.click()
       document.body.removeChild(link)
       message.success('Đã xuất file CSV thành công')
-    } catch (err: any) {
+    } catch {
       message.error('Xuất CSV thất bại')
     }
   }
@@ -215,7 +216,7 @@ export default function ProfitReportPage() {
         <Space wrap>
           <DatePicker.RangePicker
             value={dateRange}
-            onChange={(dates) => setDateRange(dates as any)}
+            onChange={(dates) => setDateRange(dates)}
             placeholder={['Từ ngày', 'Đến ngày']}
           />
           <Select
@@ -236,7 +237,6 @@ export default function ProfitReportPage() {
               { value: 'MANUAL', label: 'Thủ công' },
               { value: 'POS', label: 'Tại quầy (POS)' },
               { value: 'SHOPEE', label: 'Shopee' },
-              { value: 'LAZADA', label: 'Lazada' },
               { value: 'TIKTOK', label: 'TikTok Shop' },
             ]}
           />

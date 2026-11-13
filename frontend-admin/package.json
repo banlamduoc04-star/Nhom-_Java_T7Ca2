@@ -11,13 +11,15 @@
   },
   "dependencies": {
     "@ant-design/icons": "^6.3.4",
+    "@stomp/stompjs": "^7.5.0",
     "antd": "^6.7.0",
     "axios": "^1.21.0",
     "dayjs": "^1.11.23",
     "jsbarcode": "^3.12.3",
     "react": "^19.3.1",
     "react-dom": "^19.3.1",
-    "react-router-dom": "^7.18.5"
+    "react-router-dom": "^7.18.5",
+    "recharts": "^3.10.1"
   },
   "devDependencies": {
     "@types/node": "^24.19.2",

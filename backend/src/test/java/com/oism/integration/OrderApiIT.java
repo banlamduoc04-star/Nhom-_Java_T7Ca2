@@ -9,7 +9,6 @@ import java.util.UUID;
 
 import static org.junit.jupiter.api.Assertions.assertEquals;
 
-/** FR-ORD-01..03 (Sprint 2): tao don tay Draft, lich su, danh sach loc va phan trang. */
 class OrderApiIT extends AbstractIntegrationTest {
 
     @Test
@@ -50,7 +49,6 @@ class OrderApiIT extends AbstractIntegrationTest {
                 "items", List.of(Map.of("skuId", UUID.randomUUID(), "quantity", 1))), 404).get("errorCode").asText());
         assertEquals("OD40401", GET(s, "/api/v1/orders/" + UUID.randomUUID(), 404).get("errorCode").asText());
 
-        // SKU ngung ban khong dat duoc
         PUT(s, "/api/v1/skus/" + skuId, Map.of("status", "INACTIVE"), 200);
         assertEquals("OD40001", POST(s, "/api/v1/orders", Map.of("branchId", s.branchId(),
                 "items", List.of(Map.of("skuId", skuId, "quantity", 1))), 400).get("errorCode").asText());
@@ -72,6 +70,9 @@ class OrderApiIT extends AbstractIntegrationTest {
                 .get("totalElements").asInt());
         assertEquals(0, GET(s, "/api/v1/orders?status=RESERVED", 200).get("totalElements").asInt());
         assertEquals(0, GET(s, "/api/v1/orders?channel=SHOPEE", 200).get("totalElements").asInt());
+        // Ke hoach chi co POS/MANUAL/SHOPEE/TIKTOK: kenh khac la tham so khong hop le
+        assertEquals("OD40001", GET(s, "/api/v1/orders?channel=LAZADA", 400).get("errorCode").asText());
+        assertEquals(0, GET(s, "/api/v1/orders?channel=TIKTOK", 200).get("totalElements").asInt());
         assertEquals(0, GET(s, "/api/v1/orders?to=2000-01-01T00:00:00Z", 200).get("totalElements").asInt());
         assertEquals(3, GET(s, "/api/v1/orders?from=2000-01-01T00:00:00Z", 200).get("totalElements").asInt());
     }

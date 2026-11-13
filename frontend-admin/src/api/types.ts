@@ -141,7 +141,8 @@ export interface LedgerRow {
 }
 
 export type OrderStatus = 'DRAFT' | 'RESERVED' | 'CONFIRMED' | 'COMPLETED' | 'CANCELLED'
-export type OrderChannel = 'MANUAL' | 'POS' | 'SHOPEE' | 'LAZADA' | 'TIKTOK'
+/** Ke hoach muc 4: orders.channel */
+export type OrderChannel = 'MANUAL' | 'POS' | 'SHOPEE' | 'TIKTOK'
 
 export interface OrderItemView {
   skuId: string
@@ -185,52 +186,58 @@ export interface TransferItemView {
   quantity: number
 }
 
+/** Khop StockTransferService.TransferView. */
 export interface TransferView {
   id: string
   code: string
   fromBranchId: string
+  fromBranchName: string
   toBranchId: string
+  toBranchName: string
   status: TransferStatus
-  note: string | null
-  createdBy: string | null
   createdAt: string
-  dispatchedAt: string | null
-  receivedAt: string | null
   items: TransferItemView[]
 }
 
-export type StocktakeStatus = 'OPEN' | 'APPROVED' | 'CANCELLED'
+/** Ke hoach muc 4 bang stocktake: OPEN/APPROVED. */
+export type StocktakeStatus = 'OPEN' | 'APPROVED'
 
+/** Khop StocktakeService.StocktakeItemView. */
 export interface StocktakeItemView {
   skuId: string
   skuCode: string
-  systemQty: number
-  countedQty: number | null
+  systemQuantity: number
+  countedQuantity: number | null
   difference: number | null
 }
 
+/** Khop StocktakeService.StocktakeView. */
 export interface StocktakeView {
   id: string
   code: string
   branchId: string
+  branchName: string
   status: StocktakeStatus
-  note: string | null
-  createdBy: string | null
+  approvedBy: string | null
   createdAt: string
-  approvedAt: string | null
   items: StocktakeItemView[]
 }
 
+/** Khop ProfitReportService.ProfitSummary; grossMargin la ty le (0.4 = 40%). */
 export interface ProfitSummary {
   totalRevenue: number
   totalCogs: number
   grossProfit: number
   grossMargin: number
+  totalOrders: number
+  totalQuantity: number
 }
 
+/** Khop ProfitReportService.ProfitBySku. */
 export interface ProfitBySku {
   skuId: string
   skuCode: string
+  productName: string
   quantitySold: number
   revenue: number
   cogs: number
@@ -243,13 +250,32 @@ export interface ProfitReportView {
   bySku: ProfitBySku[]
 }
 
+/** Khop SimulatorController.SimulationResult. */
 export interface SimulationResult {
-  requested: number
+  total: number
   successful: number
   failed: number
-  durationMs: number
+  /** errorCode -> so don loi, vi du { IV40901: 49 } */
+  errorCounts: Record<string, number>
   successfulOrderCodes: string[]
-  errors: string[]
+  durationMs: number
+}
+
+/** San nhan webhook theo ke hoach (channel_credential.channel). */
+export type WebhookChannel = 'SHOPEE' | 'TIKTOK'
+
+/** Khop ChannelCredentialService.ChannelKeyView: khong bao gio chua key. */
+export interface ChannelKeyView {
+  channel: WebhookChannel
+  configured: boolean
+  createdAt: string | null
+}
+
+/** Khop ChannelCredentialService.IssuedKey: key tho chi tra ve mot lan. */
+export interface IssuedChannelKey {
+  channel: WebhookChannel
+  apiKey: string
+  createdAt: string
 }
 
 
@@ -260,11 +286,37 @@ export interface StockAlert {
   skuId: string
   skuCode: string
   productName: string
-  status: 'OPEN' | 'RESOLVED'
+  status: StockAlertStatus
   threshold: number
-  availableAtAlert: number
+  /** Hang kha dung luc mo canh bao (cot stock_alert.available) */
+  available: number
   createdAt: string
-  resolvedAt: string | null
+  closedAt: string | null
+}
+
+/** Ke hoach muc 4, bang stock_alert: OPEN/CLOSED. */
+export type StockAlertStatus = 'OPEN' | 'CLOSED'
+
+/** Khop domain/event/StockAlertEvent (kenh /topic/tenants/{id}/alerts). */
+export interface StockAlertEvent {
+  alertId: string
+  branchId: string
+  skuId: string
+  skuCode: string
+  status: StockAlertStatus
+  threshold: number
+  available: number
+  createdAt: string
+}
+
+/** Khop domain/event/OrderCreatedEvent (kenh /topic/tenants/{id}/orders). */
+export interface OrderCreatedEvent {
+  orderId: string
+  orderCode: string
+  totalAmount: number
+  channel: string
+  createdBy: string
+  createdAt: string
 }
 
 export interface ValuationItem {
@@ -305,16 +357,35 @@ export interface SlowMovingItem {
   daysWithoutSale: number
 }
 
+/** Khop application/report/DailyReportView: 1 dong = chi nhanh x ngay x kenh (bang daily_report). */
 export interface DailyReport {
   id: string
   reportDate: string
-  totalRevenue: number
-  totalCogs: number
+  branchId: string
+  branchName: string
+  channel: OrderChannel
+  orderCount: number
+  revenue: number
+  cogs: number
   grossProfit: number
-  totalOrders: number
-  completedOrders: number
-  cancelledOrders: number
   createdAt: string
+}
+
+/** Khop application/order/ShippingSlipView (GET /orders/{id}/shipping-slip). */
+export interface ShippingSlip {
+  orderId: string
+  orderCode: string
+  channel: OrderChannel
+  externalOrderId: string | null
+  status: OrderStatus
+  branchName: string | null
+  branchAddress: string | null
+  customerName: string | null
+  customerPhone: string | null
+  shippingAddress: string | null
+  createdAt: string
+  totalAmount: number
+  lines: { skuCode: string; productName: string; quantity: number; unitPrice: number; lineTotal: number }[]
 }
 
 export interface UserView {

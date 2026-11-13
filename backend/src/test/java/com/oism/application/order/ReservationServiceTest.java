@@ -1,6 +1,7 @@
 package com.oism.application.order;
 
 import com.oism.application.inventory.InventoryLedgerService;
+import com.oism.application.inventory.StockAlertService;
 import com.oism.domain.exception.BusinessException;
 import com.oism.domain.exception.ErrorCode;
 import com.oism.domain.model.OrderItem;
@@ -36,6 +37,7 @@ class ReservationServiceTest {
     @Mock SkuRepository skuRepository;
     @Mock InventoryLedgerService ledgerService;
     @Mock OrderItemRepository orderItemRepository;
+    @Mock StockAlertService stockAlertService;
 
     ReservationService reservationService;
 
@@ -47,7 +49,8 @@ class ReservationServiceTest {
 
     @BeforeEach
     void setup() {
-        reservationService = new ReservationService(stockBalanceRepository, skuRepository, ledgerService, orderItemRepository);
+        reservationService = new ReservationService(stockBalanceRepository, skuRepository, ledgerService, orderItemRepository,
+                stockAlertService);
     }
 
     private StockBalance createBalance(int onHand, int reserved) {

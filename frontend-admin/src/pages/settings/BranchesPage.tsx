@@ -3,12 +3,15 @@ import { Button, Form, Input, Modal, Select, Space, Table, Tag, Typography, mess
 import { PlusOutlined } from '@ant-design/icons'
 import { branchAdminApi } from '../../api/services'
 import type { Branch } from '../../api/types'
+import { errorText } from '../../api/client'
 
 export default function BranchesPage() {
   const [branches, setBranches] = useState<Branch[]>([])
   const [loading, setLoading] = useState(false)
   const [modalOpen, setModalOpen] = useState(false)
   const [editingBranch, setEditingBranch] = useState<Branch | null>(null)
+  const [keyword, setKeyword] = useState('')
+  const [statusFilter, setStatusFilter] = useState<'all' | 'active' | 'hidden'>('all')
   const [form] = Form.useForm()
 
   const loadData = async () => {
@@ -40,10 +43,8 @@ export default function BranchesPage() {
       setModalOpen(false)
       form.resetFields()
       loadData()
-    } catch (e: any) {
-      if (e?.response?.data?.message) {
-        message.error(e.response.data.message)
-      }
+    } catch (e) {
+      message.error(errorText(e))
     }
   }
 
@@ -52,10 +53,16 @@ export default function BranchesPage() {
       await branchAdminApi.setStatus(branch.id, !branch.active)
       message.success(branch.active ? 'Đã ẩn chi nhánh' : 'Đã hiện chi nhánh')
       loadData()
-    } catch (e: any) {
-      message.error(e?.response?.data?.message || 'Không thể thay đổi trạng thái chi nhánh (có thể còn tồn kho hoặc đơn hàng)')
+    } catch (e) {
+      message.error(errorText(e))
     }
   }
+
+  const shown = branches.filter(
+    (b) =>
+      b.name.toLowerCase().includes(keyword.trim().toLowerCase()) &&
+      (statusFilter === 'all' || (statusFilter === 'active') === b.active),
+  )
 
   return (
     <div>
@@ -74,9 +81,28 @@ export default function BranchesPage() {
         </Button>
       </div>
 
+      <Space style={{ marginBottom: 12 }}>
+        <Input.Search
+          allowClear
+          placeholder="Tìm theo tên chi nhánh"
+          style={{ width: 260 }}
+          onChange={(e) => setKeyword(e.target.value)}
+        />
+        <Select
+          value={statusFilter}
+          onChange={setStatusFilter}
+          style={{ width: 180 }}
+          options={[
+            { value: 'all', label: 'Tất cả trạng thái' },
+            { value: 'active', label: 'Đang hoạt động' },
+            { value: 'hidden', label: 'Đã ẩn' },
+          ]}
+        />
+      </Space>
+
       <Table<Branch>
         loading={loading}
-        dataSource={branches}
+        dataSource={shown}
         rowKey="id"
         columns={[
           { title: 'Tên chi nhánh / Kho', dataIndex: 'name', key: 'name' },

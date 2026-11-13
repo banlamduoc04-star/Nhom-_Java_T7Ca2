@@ -46,9 +46,9 @@ export default function App() {
                     <Route path="/transfers" element={<TransfersPage />} />
                     <Route path="/stocktakes" element={<StocktakesPage />} />
                     <Route path="/stock" element={<StockPage />} />
+                    <Route path="/stock-reports" element={<StockReportsPage />} />
                   </Route>
                   <Route element={<RequireRole roles={['OWNER']} />}>
-                    <Route path="/stock-reports" element={<StockReportsPage />} />
                     <Route path="/profit-report" element={<ProfitReportPage />} />
                     <Route path="/branches" element={<BranchesPage />} />
                     <Route path="/users" element={<UsersPage />} />

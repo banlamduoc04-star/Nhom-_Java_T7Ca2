@@ -107,4 +107,21 @@ class GlobalExceptionHandlerTest {
             return body.name();
         }
     }
+
+    @org.junit.jupiter.params.ParameterizedTest
+    @org.junit.jupiter.params.provider.CsvSource({
+            "/api/v1/products, PR40001", "/api/v1/skus/1, PR40001",
+            "/api/v1/orders, OD40001", "/api/v1/webhooks/shopee, OD40001",
+            "/api/v1/pos/checkout, OD40001", "/api/v1/simulator/orders, OD40001",
+            "/api/v1/reports/profit, RP40001",
+            "/api/v1/purchase-receipts, IV40001", "/api/v1/alerts/stock/1/read, IV40001",
+            "/api/v1/users, AU40001", "/api/v1/branches, AU40001", "/api/v1/settings, AU40001",
+            "/api/v1/auth/login, AU40001"
+    })
+    void validationCodeFollowsModuleOfPath(String path, String expected) {
+        org.springframework.mock.web.MockHttpServletRequest request =
+                new org.springframework.mock.web.MockHttpServletRequest("POST", path);
+        org.junit.jupiter.api.Assertions.assertEquals(expected, GlobalExceptionHandler.validationCode(
+                new org.springframework.web.context.request.ServletWebRequest(request)));
+    }
 }

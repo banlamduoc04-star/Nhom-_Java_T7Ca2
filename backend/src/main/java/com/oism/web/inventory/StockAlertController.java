@@ -6,11 +6,12 @@ import com.oism.application.inventory.StockAlertView;
 import com.oism.domain.model.StockAlert;
 import io.swagger.v3.oas.annotations.Operation;
 import io.swagger.v3.oas.annotations.tags.Tag;
+import org.springframework.http.ResponseEntity;
 import org.springframework.security.access.prepost.PreAuthorize;
 import org.springframework.security.core.annotation.AuthenticationPrincipal;
 import org.springframework.web.bind.annotation.GetMapping;
 import org.springframework.web.bind.annotation.PathVariable;
-import org.springframework.web.bind.annotation.PostMapping;
+import org.springframework.web.bind.annotation.PatchMapping;
 import org.springframework.web.bind.annotation.RequestMapping;
 import org.springframework.web.bind.annotation.RequestParam;
 import org.springframework.web.bind.annotation.RestController;
@@ -30,7 +31,7 @@ public class StockAlertController {
         this.stockAlertService = stockAlertService;
     }
 
-    @Operation(summary = "Danh sách cảnh báo tồn kho thấp")
+    @Operation(summary = "Danh sách cảnh báo tồn kho thấp, lọc trạng thái OPEN/CLOSED và chi nhánh - Owner, Staff")
     @PreAuthorize("hasAnyRole('OWNER', 'STAFF')")
     @GetMapping
     public List<StockAlertView> list(
@@ -40,17 +41,17 @@ public class StockAlertController {
         return stockAlertService.listAlerts(user.tenantId(), status, branchId);
     }
 
-    @Operation(summary = "Đóng cảnh báo tồn kho thủ công")
+    @Operation(summary = "Đánh dấu đã đọc/xử lý: đóng cảnh báo (OPEN -> CLOSED) - Owner, Staff. Lỗi: 404 IV40401")
     @PreAuthorize("hasAnyRole('OWNER', 'STAFF')")
-    @PostMapping("/{id}/resolve")
-    public Map<String, String> resolve(
+    @PatchMapping("/{id}/read")
+    public ResponseEntity<Void> markRead(
             @AuthenticationPrincipal AuthenticatedUser user,
             @PathVariable UUID id) {
-        stockAlertService.resolveAlert(user.tenantId(), id);
-        return Map.of("message", "Đã đóng cảnh báo thành công");
+        stockAlertService.closeAlert(user.tenantId(), id);
+        return ResponseEntity.noContent().build();
     }
 
-    @Operation(summary = "Số lượng cảnh báo đang mở (cho badge Dashboard)")
+    @Operation(summary = "(bổ sung) Số cảnh báo đang mở cho badge Dashboard - Owner, Staff")
     @PreAuthorize("hasAnyRole('OWNER', 'STAFF')")
     @GetMapping("/count")
     public Map<String, Long> countOpen(@AuthenticationPrincipal AuthenticatedUser user) {

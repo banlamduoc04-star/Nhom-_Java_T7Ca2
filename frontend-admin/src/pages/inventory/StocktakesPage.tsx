@@ -1,22 +1,21 @@
 import { useCallback, useEffect, useState } from 'react'
 import {
-  Button, Card, Col, Form, Input, InputNumber, Modal, Row, Select, Space, Table, Tag, Typography, message,
+  Button, Card, Col, Form, InputNumber, Modal, Row, Select, Space, Table, Tag, Typography, message,
 } from 'antd'
 import { CheckOutlined, EditOutlined, EyeOutlined, PlusOutlined, SyncOutlined } from '@ant-design/icons'
 import type { ColumnsType } from 'antd/es/table'
 import { branchApi, stocktakeApi } from '../../api/services'
 import type { Branch, StocktakeStatus, StocktakeView } from '../../api/types'
+import { errorText } from '../../api/client'
 
 const STATUS_COLOR: Record<StocktakeStatus, string> = {
   OPEN: 'warning',
   APPROVED: 'success',
-  CANCELLED: 'error',
 }
 
 const STATUS_LABEL: Record<StocktakeStatus, string> = {
   OPEN: 'Đang kiểm (Mở)',
   APPROVED: 'Đã duyệt (Đã cân chỉnh tồn)',
-  CANCELLED: 'Đã hủy',
 }
 
 export default function StocktakesPage() {
@@ -60,8 +59,8 @@ export default function StocktakesPage() {
       })
       setStocktakes(data.content)
       setTotal(data.totalElements)
-    } catch (err: any) {
-      message.error(err.response?.data?.message || 'Không thể tải danh sách kiểm kê')
+    } catch (err) {
+      message.error(errorText(err))
     } finally {
       setLoading(false)
     }
@@ -77,18 +76,17 @@ export default function StocktakesPage() {
 
   const branchName = (id: string) => branches.find((b) => b.id === id)?.name || id
 
-  const handleCreate = async (values: any) => {
+  const handleCreate = async (values: { branchId: string }) => {
     try {
       await stocktakeApi.create({
         branchId: values.branchId,
-        note: values.note,
       })
       message.success('Đã tạo đợt kiểm kê thành công (chụp số lượng tồn hệ thống)')
       setCreateOpen(false)
       createForm.resetFields()
       loadStocktakes()
-    } catch (err: any) {
-      message.error(err.response?.data?.message || 'Tạo đợt kiểm kê thất bại')
+    } catch (err) {
+      message.error(errorText(err))
     }
   }
 
@@ -96,7 +94,7 @@ export default function StocktakesPage() {
     setSelectedStocktake(st)
     const initCounts: Record<string, number> = {}
     st.items.forEach((item) => {
-      initCounts[item.skuId] = item.countedQty ?? item.systemQty
+      initCounts[item.skuId] = item.countedQuantity ?? item.systemQuantity
     })
     setCountInputs(initCounts)
     setCountModalOpen(true)
@@ -105,17 +103,17 @@ export default function StocktakesPage() {
   const handleSaveCounts = async () => {
     if (!selectedStocktake) return
     try {
-      const counts = Object.entries(countInputs).map(([skuId, countedQty]) => ({
+      const counts = Object.entries(countInputs).map(([skuId, countedQuantity]) => ({
         skuId,
-        countedQty,
+        countedQuantity,
       }))
       const updated = await stocktakeApi.recordCounts(selectedStocktake.id, counts)
       message.success('Đã ghi nhận số lượng thực tế kiểm kê')
       setSelectedStocktake(updated)
       setCountModalOpen(false)
       loadStocktakes()
-    } catch (err: any) {
-      message.error(err.response?.data?.message || 'Lưu số đếm thất bại')
+    } catch (err) {
+      message.error(errorText(err))
     }
   }
 
@@ -125,8 +123,8 @@ export default function StocktakesPage() {
       message.success('Đã phê duyệt đợt kiểm kê (sổ cái tồn kho đã được ghi bút toán điều chỉnh ADJUST)')
       setSelectedStocktake(updated)
       loadStocktakes()
-    } catch (err: any) {
-      message.error(err.response?.data?.message || 'Phê duyệt thất bại')
+    } catch (err) {
+      message.error(errorText(err))
     }
   }
 
@@ -152,12 +150,6 @@ export default function StocktakesPage() {
       dataIndex: 'status',
       key: 'status',
       render: (st: StocktakeStatus) => <Tag color={STATUS_COLOR[st]}>{STATUS_LABEL[st]}</Tag>,
-    },
-    {
-      title: 'Ghi chú',
-      dataIndex: 'note',
-      key: 'note',
-      render: (n) => n || '—',
     },
     {
       title: 'Ngày tạo',
@@ -211,7 +203,6 @@ export default function StocktakesPage() {
             options={[
               { value: 'OPEN', label: 'Đang kiểm (Mở)' },
               { value: 'APPROVED', label: 'Đã duyệt cân chỉnh' },
-              { value: 'CANCELLED', label: 'Đã hủy' },
             ]}
           />
           <Select
@@ -266,11 +257,8 @@ export default function StocktakesPage() {
             <Row gutter={[16, 8]}>
               <Col span={12}><p><strong>Chi nhánh:</strong> {branchName(selectedStocktake.branchId)}</p></Col>
               <Col span={12}><p><strong>Trạng thái:</strong> <Tag color={STATUS_COLOR[selectedStocktake.status]}>{STATUS_LABEL[selectedStocktake.status]}</Tag></p></Col>
-              <Col span={12}><p><strong>Ghi chú:</strong> {selectedStocktake.note || '—'}</p></Col>
+              <Col span={12}><p><strong>Mã phiên:</strong> {selectedStocktake.code}</p></Col>
               <Col span={12}><p><strong>Thời gian tạo:</strong> {new Date(selectedStocktake.createdAt).toLocaleString('vi-VN')}</p></Col>
-              {selectedStocktake.approvedAt && (
-                <Col span={12}><p><strong>Thời gian duyệt:</strong> {new Date(selectedStocktake.approvedAt).toLocaleString('vi-VN')}</p></Col>
-              )}
             </Row>
 
             <Typography.Title level={5} style={{ marginTop: 16 }}>Danh sách mặt hàng kiểm kê</Typography.Title>
@@ -281,11 +269,11 @@ export default function StocktakesPage() {
               columns={[
                 { title: 'STT', key: 'idx', render: (_, __, idx) => idx + 1, width: 60 },
                 { title: 'Mã SKU', dataIndex: 'skuCode', key: 'skuCode' },
-                { title: 'Tồn hệ thống', dataIndex: 'systemQty', key: 'systemQty', align: 'center' },
+                { title: 'Tồn hệ thống', dataIndex: 'systemQuantity', key: 'systemQuantity', align: 'center' },
                 {
                   title: 'Thực tế đếm',
-                  dataIndex: 'countedQty',
-                  key: 'countedQty',
+                  dataIndex: 'countedQuantity',
+                  key: 'countedQuantity',
                   align: 'center',
                   render: (v) => (v != null ? <strong>{v}</strong> : <span style={{ color: '#888' }}>Chưa đếm</span>),
                 },
@@ -323,14 +311,14 @@ export default function StocktakesPage() {
           dataSource={selectedStocktake?.items || []}
           columns={[
             { title: 'Mã SKU', dataIndex: 'skuCode', key: 'skuCode' },
-            { title: 'Tồn hệ thống', dataIndex: 'systemQty', key: 'systemQty', align: 'center' },
+            { title: 'Tồn hệ thống', dataIndex: 'systemQuantity', key: 'systemQuantity', align: 'center' },
             {
               title: 'Thực tế đếm',
               key: 'countInput',
               render: (_, r) => (
                 <InputNumber
                   min={0}
-                  value={countInputs[r.skuId] ?? r.systemQty}
+                  value={countInputs[r.skuId] ?? r.systemQuantity}
                   onChange={(val) => setCountInputs((prev) => ({ ...prev, [r.skuId]: val ?? 0 }))}
                 />
               ),
@@ -339,8 +327,8 @@ export default function StocktakesPage() {
               title: 'Chênh lệch dự kiến',
               key: 'diffCalc',
               render: (_, r) => {
-                const counted = countInputs[r.skuId] ?? r.systemQty
-                const diff = counted - r.systemQty
+                const counted = countInputs[r.skuId] ?? r.systemQuantity
+                const diff = counted - r.systemQuantity
                 if (diff > 0) return <span style={{ color: '#52c41a' }}>+{diff} (thừa)</span>
                 if (diff < 0) return <span style={{ color: '#cf1322' }}>{diff} (thiếu)</span>
                 return <span style={{ color: '#888' }}>0</span>
@@ -360,9 +348,6 @@ export default function StocktakesPage() {
         <Form form={createForm} layout="vertical" onFinish={handleCreate}>
           <Form.Item name="branchId" label="Chi nhánh kiểm kê" rules={[{ required: true, message: 'Chọn chi nhánh' }]}>
             <Select placeholder="Chọn chi nhánh" options={branches.map((b) => ({ value: b.id, label: b.name }))} />
-          </Form.Item>
-          <Form.Item name="note" label="Ghi chú đợt kiểm">
-            <Input placeholder="Ví dụ: Kiểm kê định kỳ tháng 11..." />
           </Form.Item>
         </Form>
       </Modal>

@@ -1,5 +1,7 @@
 import { useCallback, useEffect, useRef, useState, type FormEvent } from 'react'
-import { errorText, logout, lookupBarcode, posCheckout, searchSkus, type CheckoutReceipt, type Me } from './api'
+import { errorText, logout, lookupBarcode, posCheckout, searchSkus, USE_MOCK, type CheckoutReceipt, type Me } from './api'
+import { subscribeNewOrders, type OrderCreatedEvent } from './realtime'
+import QrCode from './QrCode'
 import { addToCart, cartTotal, itemCount, looksLikeBarcode, removeLine, setQuantity, type CartLine, type SkuInfo } from './cart'
 
 interface Props {
@@ -23,7 +25,7 @@ export default function SaleScreen({ user, onLogout }: Props) {
   const [cart, setCart] = useState<CartLine[]>([])
   const [notice, setNotice] = useState<Notice | null>(null)
 
-  // Payment states
+  // Payment
   const [payOpen, setPayOpen] = useState(false)
   const [paymentMethod, setPaymentMethod] = useState<'CASH' | 'QR'>('CASH')
   const [cashGiven, setCashGiven] = useState<number>(0)
@@ -31,6 +33,30 @@ export default function SaleScreen({ user, onLogout }: Props) {
 
   // Receipt modal state
   const [receipt, setReceipt] = useState<CheckoutReceipt | null>(null)
+
+  // FR-POS-03: thanh toan xong tu mo hop thoai in hoa don 80 mm (sau khi hoa don da hien tren man hinh)
+  useEffect(() => {
+    if (!receipt) return
+    const timer = setTimeout(() => window.print(), 300)
+    return () => clearTimeout(timer)
+  }, [receipt])
+
+  // FR-SIM-02: thong bao don moi cua cua hang (don san, don tay, POS khac)
+  const [newOrder, setNewOrder] = useState<OrderCreatedEvent | null>(null)
+
+  useEffect(() => {
+    if (USE_MOCK) return
+    let hideTimer: ReturnType<typeof setTimeout> | undefined
+    const unsubscribe = subscribeNewOrders(user.tenantId, (event) => {
+      setNewOrder(event)
+      clearTimeout(hideTimer)
+      hideTimer = setTimeout(() => setNewOrder(null), 8000)
+    })
+    return () => {
+      clearTimeout(hideTimer)
+      unsubscribe()
+    }
+  }, [user.tenantId])
 
   const total = cartTotal(cart)
 
@@ -48,9 +74,8 @@ export default function SaleScreen({ user, onLogout }: Props) {
   const submit = async (e: FormEvent) => {
     e.preventDefault()
     const query = text.trim()
-    if (!query) {
-      return
-    }
+    if (!query) return
+
     setBusy(true)
     setNotice(null)
     try {
@@ -98,7 +123,7 @@ export default function SaleScreen({ user, onLogout }: Props) {
       return
     }
     if (paymentMethod === 'CASH' && cashGiven < total) {
-      alert('Tiền khách đưa chưa đủ!')
+      setNotice({ kind: 'error', text: 'Tiền khách đưa chưa đủ!' })
       return
     }
 
@@ -113,14 +138,16 @@ export default function SaleScreen({ user, onLogout }: Props) {
       setCart([])
       setPayOpen(false)
       setReceipt(receiptData)
+      setNotice({ kind: 'ok', text: 'Thanh toán thành công!' })
     } catch (err) {
-      alert(`Lỗi thanh toán: ${errorText(err)}`)
+      // Hiển thị lỗi thanh toán
+      setNotice({ kind: 'error', text: `Lỗi thanh toán: ${errorText(err)}` })
     } finally {
       setBusy(false)
     }
   }
 
-  // Phim tat: F2 tim, F9 thanh toan, Esc huy gio (hoac dong hop thoai)
+  // Phím tắt: F2 tìm, F9 thanh toán, Esc hủy giỏ
   useEffect(() => {
     const onKey = (e: KeyboardEvent) => {
       if (e.key === 'F2') {
@@ -130,7 +157,7 @@ export default function SaleScreen({ user, onLogout }: Props) {
       } else if (e.key === 'F9') {
         e.preventDefault()
         if (payOpen) {
-          handleCheckout()
+          if (!busy) handleCheckout()
         } else if (!receipt) {
           openCheckout()
         }
@@ -148,7 +175,7 @@ export default function SaleScreen({ user, onLogout }: Props) {
     }
     window.addEventListener('keydown', onKey)
     return () => window.removeEventListener('keydown', onKey)
-  }, [cart.length, payOpen, receipt, openCheckout, clearCart])
+  }, [payOpen, receipt, busy, openCheckout, clearCart])
 
   const changeQuantity = (skuId: string, quantity: number) => {
     const result = setQuantity(cart, skuId, quantity)
@@ -165,6 +192,11 @@ export default function SaleScreen({ user, onLogout }: Props) {
         <span className="muted">{user.tenantName} · {user.fullName}</span>
         <button onClick={() => logout().then(onLogout)}>Đăng xuất</button>
       </header>
+      {newOrder && (
+        <div className="alert ok no-print" role="status" aria-live="polite">
+          🔔 Đơn mới {newOrder.orderCode} ({newOrder.channel}) - {money(Number(newOrder.totalAmount || 0))}
+        </div>
+      )}
 
       <main className="layout no-print">
         <section className="card">
@@ -198,7 +230,8 @@ export default function SaleScreen({ user, onLogout }: Props) {
           {cart.length === 0 ? (
             <p className="muted">Chưa có sản phẩm. Quét mã vạch để thêm.</p>
           ) : (
-            <table>
+            <div className="table-wrap">
+              <table>
               <thead>
                 <tr><th>Sản phẩm</th><th>Đơn giá</th><th>SL</th><th>Thành tiền</th><th /></tr>
               </thead>
@@ -224,6 +257,7 @@ export default function SaleScreen({ user, onLogout }: Props) {
                 ))}
               </tbody>
             </table>
+            </div>
           )}
           <div className="total">
             <span>Tổng cộng</span>
@@ -238,10 +272,9 @@ export default function SaleScreen({ user, onLogout }: Props) {
         </section>
       </main>
 
-      {/* Modal thanh toan */}
-      {payOpen && (
+            {payOpen && (
         <div className="modal no-print" role="dialog" aria-modal="true" aria-label="Thanh toán">
-          <div className="card" style={{ width: 460 }}>
+          <div className="card" style={{ width: "100%", maxWidth: 460 }}>
             <h2>Thanh toán đơn hàng</h2>
             <div style={{ fontSize: '1.2rem', marginBottom: 12 }}>
               Tổng tiền thanh toán: <strong style={{ color: '#1677ff' }}>{money(total)}</strong>
@@ -292,10 +325,7 @@ export default function SaleScreen({ user, onLogout }: Props) {
               </div>
             ) : (
               <div className="qr-box">
-                <img
-                  src={`https://api.qrserver.com/v1/create-qr-code/?size=160x160&data=OISM_POS_${user.branchId}_${total}`}
-                  alt="Mã QR thanh toán"
-                />
+                <QrCode value={`OISM_POS_${user.branchId}_${total}`} />
                 <p style={{ margin: '8px 0 0', fontWeight: 600 }}>Quét mã QR để chuyển khoản</p>
                 <small className="muted">Thu ngân xác nhận tiền đã vào tài khoản trước khi hoàn tất</small>
               </div>
@@ -316,7 +346,7 @@ export default function SaleScreen({ user, onLogout }: Props) {
         </div>
       )}
 
-      {/* Modal hoa don 80mm */}
+      {/* Modal hóa đơn */}
       {receipt && (
         <div className="modal" role="dialog" aria-modal="true" aria-label="Hóa đơn thanh toán">
           <div className="card" style={{ width: 380 }}>

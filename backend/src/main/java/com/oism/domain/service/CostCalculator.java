@@ -4,9 +4,8 @@ import java.math.BigDecimal;
 import java.math.RoundingMode;
 
 /**
- * Gia von binh quan gia quyen (FR-COST-01), tinh theo SKU tren toan tenant:
- * (ton cu x gia von cu + SL nhap x gia nhap) / (ton cu + SL nhap), lam tron 2 chu so (HALF_UP).
- * Ton cu bang 0 thi gia von moi = gia nhap.
+ * Gia von binh quan gia quyen (FR-COST-01, Ke hoach muc 4): tinh theo SKU tren toan tenant khi xac nhan phieu nhap.
+ * Ton cu bang 0 thi gia von moi = gia nhap; lam tron 2 chu so thap phan HALF_UP.
  */
 public final class CostCalculator {
 

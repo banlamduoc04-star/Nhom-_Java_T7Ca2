@@ -17,13 +17,22 @@ public interface InventoryTransactionRepository
 
     boolean existsByTenantIdAndSkuId(UUID tenantId, UUID skuId);
 
+    // Keyset (NFR-TENANT-02): khong dung "tham so IS NULL" vi PostgreSQL khong suy ra kieu cua tham so null
+    // ("could not determine data type of parameter") -> tach rieng trang dau / trang sau, co / khong loc chi nhanh.
+
+    List<InventoryTransaction> findByTenantIdOrderByCreatedAtDescIdDesc(UUID tenantId, Pageable pageable);
+
+    List<InventoryTransaction> findByTenantIdAndBranchIdOrderByCreatedAtDescIdDesc(
+            UUID tenantId, UUID branchId, Pageable pageable);
+
+    /** Trang sau: (created_at, id) < con tro, dung tron index ix_invtx_tenant_created_id. */
     @Query("""
         SELECT t FROM InventoryTransaction t
         WHERE t.tenantId = :tenantId
-          AND (:createdAt IS NULL OR t.createdAt < :createdAt OR (t.createdAt = :createdAt AND t.id < :id))
+          AND (t.createdAt, t.id) < (:createdAt, :id)
         ORDER BY t.createdAt DESC, t.id DESC
     """)
-    List<InventoryTransaction> findKeyset(
+    List<InventoryTransaction> findKeysetAfter(
             @Param("tenantId") UUID tenantId,
             @Param("createdAt") Instant createdAt,
             @Param("id") UUID id,
@@ -33,10 +42,10 @@ public interface InventoryTransactionRepository
         SELECT t FROM InventoryTransaction t
         WHERE t.tenantId = :tenantId
           AND t.branchId = :branchId
-          AND (:createdAt IS NULL OR t.createdAt < :createdAt OR (t.createdAt = :createdAt AND t.id < :id))
+          AND (t.createdAt, t.id) < (:createdAt, :id)
         ORDER BY t.createdAt DESC, t.id DESC
     """)
-    List<InventoryTransaction> findKeysetByBranch(
+    List<InventoryTransaction> findKeysetAfterByBranch(
             @Param("tenantId") UUID tenantId,
             @Param("branchId") UUID branchId,
             @Param("createdAt") Instant createdAt,
