@@ -4,6 +4,7 @@ import com.oism.domain.exception.BusinessException;
 import com.oism.domain.exception.ErrorCode;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
+import org.springframework.dao.DataIntegrityViolationException;
 import org.springframework.http.HttpHeaders;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.HttpStatusCode;
@@ -17,6 +18,7 @@ import org.springframework.web.context.request.WebRequest;
 import org.springframework.web.servlet.mvc.method.annotation.ResponseEntityExceptionHandler;
 
 import java.util.List;
+import java.util.Map;
 
 /**
  * Doi moi loi thanh JSON {errorCode, message, details}. Ke thua ResponseEntityExceptionHandler
@@ -44,6 +46,34 @@ public class GlobalExceptionHandler extends ResponseEntityExceptionHandler {
     ResponseEntity<Object> handleAuthentication(AuthenticationException ex) {
         ErrorCode code = ErrorCode.AU40101;
         return ResponseEntity.status(code.httpStatus()).body(ApiError.of(code.name(), code.defaultMessage()));
+    }
+
+    /**
+     * Rang buoc UNIQUE cua DB la lop bao ve cuoi (Chuan muc 5): hai request dong thoi cung vuot qua buoc
+     * kiem tra o service thi request sau dam vao index. Rang buoc da biet -> tra dung ma nghiep vu thay vi 500.
+     */
+    @ExceptionHandler(DataIntegrityViolationException.class)
+    ResponseEntity<Object> handleDataIntegrity(DataIntegrityViolationException ex) {
+        for (Map.Entry<String, ErrorCode> known : KNOWN_CONSTRAINTS.entrySet()) {
+            if (mentionsConstraint(ex, known.getKey())) {
+                ErrorCode code = known.getValue();
+                return ResponseEntity.status(code.httpStatus()).body(ApiError.of(code.name(), code.defaultMessage()));
+            }
+        }
+        return handleUnexpected(ex);
+    }
+
+    /** Ten rang buoc trong migration -> ma loi theo bang ma loi cua ke hoach. */
+    static final Map<String, ErrorCode> KNOWN_CONSTRAINTS = Map.of(
+            "uq_orders_external", ErrorCode.OD40902); // FR-ORD-01: cung kenh + cung ma don ngoai
+
+    private static boolean mentionsConstraint(Throwable ex, String constraint) {
+        for (Throwable t = ex; t != null; t = t.getCause() == t ? null : t.getCause()) {
+            if (t.getMessage() != null && t.getMessage().contains(constraint)) {
+                return true;
+            }
+        }
+        return false;
     }
 
     @ExceptionHandler(Exception.class)
@@ -91,7 +121,8 @@ public class GlobalExceptionHandler extends ResponseEntityExceptionHandler {
                 || resource.startsWith("products") || resource.startsWith("skus")) {
             return ErrorCode.PR40001.name();
         }
-        if (resource.startsWith("orders") || resource.startsWith("webhooks")) {
+        if (resource.startsWith("orders") || resource.startsWith("webhooks")
+                || resource.startsWith("pos") || resource.startsWith("simulator")) {
             return ErrorCode.OD40001.name();
         }
         if (resource.startsWith("reports") || resource.startsWith("dashboard")) {
@@ -99,9 +130,11 @@ public class GlobalExceptionHandler extends ResponseEntityExceptionHandler {
         }
         if (resource.startsWith("inventory") || resource.startsWith("stock")
                 || resource.startsWith("transfers") || resource.startsWith("stocktakes")
-                || resource.startsWith("suppliers") || resource.startsWith("purchase-receipts")) {
+                || resource.startsWith("suppliers") || resource.startsWith("purchase-receipts")
+                || resource.startsWith("alerts")) {
             return ErrorCode.IV40001.name();
         }
+        // auth, me, users, branches, settings: module AUTH
         return ErrorCode.AU40001.name();
     }
 }

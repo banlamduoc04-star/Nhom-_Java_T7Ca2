@@ -25,6 +25,7 @@ import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
 import java.util.UUID;
+import java.util.concurrent.ConcurrentHashMap;
 import java.util.concurrent.CountDownLatch;
 import java.util.concurrent.ExecutorService;
 import java.util.concurrent.Executors;
@@ -36,7 +37,7 @@ import java.util.concurrent.atomic.AtomicInteger;
  */
 @RestController
 @RequestMapping("/api/v1/simulator")
-@PreAuthorize("hasAnyRole('OWNER','STAFF')")
+@PreAuthorize("hasRole('OWNER')")
 @Tag(name = "Simulator")
 public class SimulatorController {
 
@@ -76,7 +77,8 @@ public class SimulatorController {
         AtomicInteger successCount = new AtomicInteger();
         AtomicInteger failCount = new AtomicInteger();
         List<String> successCodes = Collections.synchronizedList(new ArrayList<>());
-        Map<String, AtomicInteger> errors = new HashMap<>();
+        // Nhieu luong cung ghi: HashMap.computeIfAbsent dong thoi co the mat dem hoac hong bang
+        Map<String, AtomicInteger> errors = new ConcurrentHashMap<>();
 
         long startTime = System.currentTimeMillis();
 

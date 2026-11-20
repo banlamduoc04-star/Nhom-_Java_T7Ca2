@@ -30,6 +30,7 @@ import java.time.LocalDate;
 import java.time.ZoneOffset;
 import java.time.format.DateTimeFormatter;
 import java.util.ArrayList;
+import java.util.Comparator;
 import java.util.List;
 import java.util.Map;
 import java.util.UUID;
@@ -131,7 +132,7 @@ public class StockTransferService {
         transfer.markInTransit();
         transferRepository.save(transfer);
 
-        List<StockTransferItem> items = itemRepository.findByTenantIdAndTransferId(tenantId, transferId);
+        List<StockTransferItem> items = sortedBySku(itemRepository.findByTenantIdAndTransferId(tenantId, transferId));
         for (StockTransferItem item : items) {
             Sku sku = skuRepository.findByIdAndTenantId(item.getSkuId(), tenantId)
                     .orElseThrow(() -> new BusinessException(ErrorCode.PR40401, "Không tìm thấy SKU"));
@@ -155,7 +156,7 @@ public class StockTransferService {
         transfer.markReceived();
         transferRepository.save(transfer);
 
-        List<StockTransferItem> items = itemRepository.findByTenantIdAndTransferId(tenantId, transferId);
+        List<StockTransferItem> items = sortedBySku(itemRepository.findByTenantIdAndTransferId(tenantId, transferId));
         for (StockTransferItem item : items) {
             Sku sku = skuRepository.findByIdAndTenantId(item.getSkuId(), tenantId)
                     .orElseThrow(() -> new BusinessException(ErrorCode.PR40401, "Không tìm thấy SKU"));
@@ -245,5 +246,10 @@ public class StockTransferService {
             }
         }
         throw new IllegalStateException("Không sinh được mã phiếu chuyển kho");
+    }
+
+    /** Chuan 7.2.2: so cai khoa tung dong ton, nen di theo sku_id tang dan de hai phieu chay song song khong deadlock. */
+    private static List<StockTransferItem> sortedBySku(List<StockTransferItem> items) {
+        return items.stream().sorted(Comparator.comparing(StockTransferItem::getSkuId)).toList();
     }
 }

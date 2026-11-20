@@ -5,6 +5,8 @@ import com.oism.application.common.PageResult;
 import com.oism.application.order.OrderLine;
 import com.oism.application.order.OrderService;
 import com.oism.application.order.OrderView;
+import com.oism.application.order.ShippingSlipService;
+import com.oism.application.order.ShippingSlipView;
 import com.oism.domain.model.OrderChannel;
 import com.oism.domain.model.OrderStatus;
 import io.swagger.v3.oas.annotations.Operation;
@@ -40,9 +42,11 @@ import java.util.UUID;
 public class OrderController {
 
     private final OrderService orderService;
+    private final ShippingSlipService shippingSlipService;
 
-    public OrderController(OrderService orderService) {
+    public OrderController(OrderService orderService, ShippingSlipService shippingSlipService) {
         this.orderService = orderService;
+        this.shippingSlipService = shippingSlipService;
     }
 
     public record ItemRequest(
@@ -77,6 +81,12 @@ public class OrderController {
     @Operation(summary = "Chi tiết đơn kèm dòng hàng và lịch sử trạng thái")
     public OrderView get(@AuthenticationPrincipal AuthenticatedUser user, @PathVariable UUID id) {
         return orderService.get(user.tenantId(), id);
+    }
+
+    @GetMapping("/{id}/shipping-slip")
+    @Operation(summary = "Dữ liệu in phiếu giao hàng (FR-ORD-03) - Owner, Staff. Lỗi: 404 OD40401, 409 OD40901 đơn đã hủy")
+    public ShippingSlipView shippingSlip(@AuthenticationPrincipal AuthenticatedUser user, @PathVariable UUID id) {
+        return shippingSlipService.shippingSlip(user.tenantId(), id);
     }
 
     @PostMapping

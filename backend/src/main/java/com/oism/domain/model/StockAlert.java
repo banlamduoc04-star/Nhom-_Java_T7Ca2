@@ -11,8 +11,9 @@ import java.time.Instant;
 import java.util.UUID;
 
 /**
- * Canh bao ton thap (FR-REP-03, JC-30): khi available <= reorder_point thi tao canh bao OPEN.
- * Tu dong chuyen RESOLVED khi nhap hang vuot nguong.
+ * Canh bao ton thap (FR-REP-03; Ke hoach muc 4 bang stock_alert: branch_id, sku_id, available, threshold,
+ * status OPEN/CLOSED). Mo khi available <= reorder_point; tu dong dong khi available vuot nguong.
+ * Moi (branch, sku) toi da 1 canh bao OPEN (index uq_stock_alert_open).
  */
 @Entity
 @Table(name = "stock_alert")
@@ -21,7 +22,7 @@ public class StockAlert extends TenantScopedEntity {
 
     public enum Status {
         OPEN,
-        RESOLVED
+        CLOSED
     }
 
     @Column(name = "branch_id", nullable = false)
@@ -37,21 +38,22 @@ public class StockAlert extends TenantScopedEntity {
     @Column(name = "threshold", nullable = false)
     private int threshold;
 
-    @Column(name = "available_at_alert", nullable = false)
-    private int availableAtAlert;
+    /** Hang kha dung tai thoi diem mo canh bao. */
+    @Column(name = "available", nullable = false)
+    private int available;
 
-    @Column(name = "resolved_at")
-    private Instant resolvedAt;
+    @Column(name = "closed_at")
+    private Instant closedAt;
 
     protected StockAlert() {
     }
 
-    public StockAlert(UUID tenantId, UUID branchId, UUID skuId, int threshold, int availableAtAlert) {
+    public StockAlert(UUID tenantId, UUID branchId, UUID skuId, int threshold, int available) {
         super(tenantId);
         this.branchId = branchId;
         this.skuId = skuId;
         this.threshold = threshold;
-        this.availableAtAlert = availableAtAlert;
+        this.available = available;
         this.status = Status.OPEN;
     }
 
@@ -71,17 +73,22 @@ public class StockAlert extends TenantScopedEntity {
         return threshold;
     }
 
-    public int getAvailableAtAlert() {
-        return availableAtAlert;
+    public int getAvailable() {
+        return available;
     }
 
-    public Instant getResolvedAt() {
-        return resolvedAt;
+    public Instant getClosedAt() {
+        return closedAt;
     }
 
-    public void resolve() {
-        this.status = Status.RESOLVED;
-        this.resolvedAt = Instant.now();
+    public boolean isOpen() {
+        return status == Status.OPEN;
+    }
+
+    public void close() {
+        if (status == Status.OPEN) {
+            this.status = Status.CLOSED;
+            this.closedAt = Instant.now();
+        }
     }
 }
-

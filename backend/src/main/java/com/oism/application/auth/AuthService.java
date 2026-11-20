@@ -1,5 +1,6 @@
 package com.oism.application.auth;
 
+import com.oism.application.common.Sha256;
 import com.oism.domain.exception.BusinessException;
 import com.oism.domain.exception.ErrorCode;
 import com.oism.domain.model.AppUser;
@@ -16,14 +17,10 @@ import org.springframework.security.crypto.password.PasswordEncoder;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
-import java.nio.charset.StandardCharsets;
-import java.security.MessageDigest;
-import java.security.NoSuchAlgorithmException;
 import java.security.SecureRandom;
 import java.time.Duration;
 import java.time.Instant;
 import java.util.Base64;
-import java.util.HexFormat;
 import java.util.Optional;
 import java.util.UUID;
 
@@ -192,12 +189,7 @@ public class AuthService {
     }
 
     static String hash(String rawToken) {
-        try {
-            MessageDigest digest = MessageDigest.getInstance("SHA-256");
-            return HexFormat.of().formatHex(digest.digest(rawToken.getBytes(StandardCharsets.UTF_8)));
-        } catch (NoSuchAlgorithmException e) {
-            throw new IllegalStateException("SHA-256 không khả dụng", e);
-        }
+        return Sha256.hex(rawToken);
     }
 
     static String normalizeEmail(String email) {

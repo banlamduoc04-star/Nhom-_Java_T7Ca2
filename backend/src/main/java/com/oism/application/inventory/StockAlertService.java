@@ -15,6 +15,7 @@ import com.oism.domain.repository.StockAlertRepository;
 import com.oism.domain.repository.StockBalanceRepository;
 import org.springframework.context.ApplicationEventPublisher;
 import org.springframework.stereotype.Service;
+import org.springframework.transaction.annotation.Propagation;
 import org.springframework.transaction.annotation.Transactional;
 
 import java.time.Instant;
@@ -26,8 +27,10 @@ import java.util.UUID;
 import java.util.stream.Collectors;
 
 /**
- * Quan ly canh bao ton kho thap (FR-REP-03, JC-30).
- * Sinh canh bao khi available <= reorder_point, tu dong dong khi nhap hang vuot nguong.
+ * Canh bao ton kho thap (FR-REP-03): available <= reorder_point thi mo canh bao OPEN va day thong bao;
+ * available vuot nguong thi tu dong dong (CLOSED). Moi (chi nhanh, SKU) toi da 1 canh bao OPEN.
+ * checkStockLevel duoc goi sau MOI thay doi on_hand/reserved (InventoryLedgerService.post, ReservationService),
+ * cung giao dich va sau khi dong stock_balance da bi khoa, nen hai giao dich khong the cung mo trung canh bao.
  */
 @Service
 public class StockAlertService {
@@ -53,38 +56,30 @@ public class StockAlertService {
         this.eventPublisher = eventPublisher;
     }
 
-    @Transactional
+    /** Danh gia lai canh bao cua mot (chi nhanh, SKU). Bat buoc chay trong giao dich cua thao tac kho. */
+    @Transactional(propagation = Propagation.MANDATORY)
     public void checkStockLevel(UUID tenantId, UUID branchId, UUID skuId) {
-        Optional<Sku> skuOpt = skuRepository.findById(skuId);
+        Optional<Sku> skuOpt = skuRepository.findByIdAndTenantId(skuId, tenantId);
         if (skuOpt.isEmpty()) {
             return;
         }
         Sku sku = skuOpt.get();
         int threshold = sku.getReorderPoint();
-        if (threshold <= 0) {
-            return;
-        }
-
-        Optional<StockBalance> balanceOpt = stockBalanceRepository.findForUpdate(tenantId, branchId, skuId);
-        int available = balanceOpt.map(StockBalance::getAvailable).orElse(0);
-
+        int available = stockBalanceRepository.findForUpdate(tenantId, branchId, skuId)
+                .map(StockBalance::getAvailable).orElse(0);
         Optional<StockAlert> openAlert = stockAlertRepository.findByTenantIdAndBranchIdAndSkuIdAndStatus(
                 tenantId, branchId, skuId, StockAlert.Status.OPEN);
 
-        if (available <= threshold) {
-            if (openAlert.isEmpty()) {
-                StockAlert alert = stockAlertRepository.save(new StockAlert(tenantId, branchId, skuId, threshold, available));
-                eventPublisher.publishEvent(new StockAlertEvent(
-                        tenantId, alert.getId(), branchId, skuId, sku.getCode(), "OPEN", threshold, available, Instant.now()));
-            }
-        } else {
-            if (openAlert.isPresent()) {
-                StockAlert alert = openAlert.get();
-                alert.resolve();
-                stockAlertRepository.save(alert);
-                eventPublisher.publishEvent(new StockAlertEvent(
-                        tenantId, alert.getId(), branchId, skuId, sku.getCode(), "RESOLVED", threshold, available, Instant.now()));
-            }
+        // reorder_point = 0 nghia la khong theo doi; canh bao dang mo (neu co) cung duoc dong
+        boolean low = threshold > 0 && available <= threshold;
+        if (low && openAlert.isEmpty()) {
+            StockAlert alert = stockAlertRepository.save(new StockAlert(tenantId, branchId, skuId, threshold, available));
+            publish(alert, sku, available);
+        } else if (!low && openAlert.isPresent()) {
+            StockAlert alert = openAlert.get();
+            alert.close();
+            stockAlertRepository.save(alert);
+            publish(alert, sku, available);
         }
     }
 
@@ -98,21 +93,22 @@ public class StockAlertService {
         } else {
             alerts = stockAlertRepository.findByTenantIdOrderByCreatedAtDesc(tenantId);
         }
-
+        if (branchId != null && status == null) {
+            alerts = alerts.stream().filter(a -> branchId.equals(a.getBranchId())).toList();
+        }
         if (alerts.isEmpty()) {
             return Collections.emptyList();
         }
 
-        List<UUID> branchIds = alerts.stream().map(StockAlert::getBranchId).distinct().toList();
-        Map<UUID, String> branchNames = branchRepository.findAllById(branchIds).stream()
+        Map<UUID, String> branchNames = branchRepository.findByTenantIdOrderByNameAsc(tenantId).stream()
                 .collect(Collectors.toMap(Branch::getId, Branch::getName, (a, b) -> a));
 
         List<UUID> skuIds = alerts.stream().map(StockAlert::getSkuId).distinct().toList();
-        List<Sku> skus = skuRepository.findAllById(skuIds);
+        List<Sku> skus = skuRepository.findByTenantIdAndIdIn(tenantId, skuIds);
         Map<UUID, String> skuCodes = skus.stream().collect(Collectors.toMap(Sku::getId, Sku::getCode, (a, b) -> a));
 
         List<UUID> prodIds = skus.stream().map(Sku::getProductId).distinct().toList();
-        Map<UUID, String> prodNames = productRepository.findAllById(prodIds).stream()
+        Map<UUID, String> prodNames = productRepository.findByTenantIdAndIdIn(tenantId, prodIds).stream()
                 .collect(Collectors.toMap(Product::getId, Product::getName, (a, b) -> a));
         Map<UUID, String> skuProductNames = skus.stream()
                 .collect(Collectors.toMap(Sku::getId, s -> prodNames.getOrDefault(s.getProductId(), s.getCode()), (a, b) -> a));
@@ -126,18 +122,18 @@ public class StockAlertService {
                 skuProductNames.getOrDefault(a.getSkuId(), "N/A"),
                 a.getStatus(),
                 a.getThreshold(),
-                a.getAvailableAtAlert(),
+                a.getAvailable(),
                 a.getCreatedAt(),
-                a.getResolvedAt()
+                a.getClosedAt()
         )).toList();
     }
 
+    /** Owner/Staff dong canh bao bang tay (da xu ly). Khong thay hoac khac tenant -> 404 IV40401. */
     @Transactional
-    public void resolveAlert(UUID tenantId, UUID alertId) {
-        StockAlert alert = stockAlertRepository.findById(alertId)
-                .filter(a -> a.getTenantId().equals(tenantId))
+    public void closeAlert(UUID tenantId, UUID alertId) {
+        StockAlert alert = stockAlertRepository.findByIdAndTenantId(alertId, tenantId)
                 .orElseThrow(() -> new BusinessException(ErrorCode.IV40401, "Không tìm thấy cảnh báo"));
-        alert.resolve();
+        alert.close();
         stockAlertRepository.save(alert);
     }
 
@@ -145,5 +141,10 @@ public class StockAlertService {
     public long countOpenAlerts(UUID tenantId) {
         return stockAlertRepository.countByTenantIdAndStatus(tenantId, StockAlert.Status.OPEN);
     }
-}
 
+    private void publish(StockAlert alert, Sku sku, int available) {
+        eventPublisher.publishEvent(new StockAlertEvent(alert.getTenantId(), alert.getId(), alert.getBranchId(),
+                alert.getSkuId(), sku.getCode(), alert.getStatus().name(), alert.getThreshold(), available,
+                Instant.now()));
+    }
+}

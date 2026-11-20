@@ -1,5 +1,7 @@
 package com.oism.application.inventory;
 
+import com.oism.domain.exception.BusinessException;
+import com.oism.domain.exception.ErrorCode;
 import com.oism.application.common.PageResult;
 import com.oism.application.common.Paging;
 import com.oism.domain.model.InventoryTransaction;
@@ -92,10 +94,20 @@ public class StockService {
     /** Keyset pagination (JC-30, FR-INV-01): truy van so cai hieu nang cao khong can offset. */
     @Transactional(readOnly = true)
     public List<TransactionView> transactionsKeyset(UUID tenantId, UUID branchId, Instant lastCreatedAt, UUID lastId, int limit) {
+        if ((lastCreatedAt == null) != (lastId == null)) {
+            throw new BusinessException(ErrorCode.IV40001, "Con trỏ keyset cần đủ lastCreatedAt và lastId");
+        }
         PageRequest pr = PageRequest.of(0, Math.min(Math.max(limit, 1), 100));
-        List<InventoryTransaction> list = branchId != null
-                ? inventoryTransactionRepository.findKeysetByBranch(tenantId, branchId, lastCreatedAt, lastId, pr)
-                : inventoryTransactionRepository.findKeyset(tenantId, lastCreatedAt, lastId, pr);
+        List<InventoryTransaction> list;
+        if (lastCreatedAt == null) {
+            list = branchId == null
+                    ? inventoryTransactionRepository.findByTenantIdOrderByCreatedAtDescIdDesc(tenantId, pr)
+                    : inventoryTransactionRepository.findByTenantIdAndBranchIdOrderByCreatedAtDescIdDesc(tenantId, branchId, pr);
+        } else {
+            list = branchId == null
+                    ? inventoryTransactionRepository.findKeysetAfter(tenantId, lastCreatedAt, lastId, pr)
+                    : inventoryTransactionRepository.findKeysetAfterByBranch(tenantId, branchId, lastCreatedAt, lastId, pr);
+        }
         Map<UUID, String> codes = skuCodes(tenantId, list.stream().map(InventoryTransaction::getSkuId).toList());
         return list.stream().map(t -> new TransactionView(t.getId(), t.getBranchId(), t.getSkuId(),
                 codes.get(t.getSkuId()), t.getDirection(), t.getReason(), t.getQuantity(), t.getBalanceAfter(),

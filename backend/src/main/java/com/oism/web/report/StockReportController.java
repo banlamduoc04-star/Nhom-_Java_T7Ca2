@@ -2,9 +2,9 @@ package com.oism.web.report;
 
 import com.oism.application.auth.AuthenticatedUser;
 import com.oism.application.report.DailyReportService;
+import com.oism.application.report.DailyReportView;
 import com.oism.application.report.StockReportService;
 import com.oism.application.report.StockReportViews;
-import com.oism.domain.model.DailyReport;
 import io.swagger.v3.oas.annotations.Operation;
 import io.swagger.v3.oas.annotations.Parameter;
 import io.swagger.v3.oas.annotations.tags.Tag;
@@ -18,10 +18,16 @@ import org.springframework.web.bind.annotation.RequestParam;
 import org.springframework.web.bind.annotation.RestController;
 
 import java.time.LocalDate;
+import java.time.ZoneOffset;
 import java.util.List;
 import java.util.UUID;
 
-@Tag(name = "Báo cáo tồn kho & hàng bán", description = "FR-REP-02, JC-29: Báo cáo giá trị tồn kho, top bán chạy, hàng tồn chậm, chốt số hàng ngày")
+/**
+ * Bao cao ton kho va toc do ban (FR-REP-02) theo Danh sach API cua ke hoach:
+ * GET /reports/inventory-value, /reports/top-selling, /reports/slow-moving - Owner, Staff.
+ * (bo sung) Bao cao chot ngay FR-SIM-03: GET /reports/daily, POST /reports/daily/run - Owner.
+ */
+@Tag(name = "Báo cáo tồn kho & hàng bán", description = "FR-REP-02: giá trị tồn, top bán chạy, hàng tồn chậm; FR-SIM-03: chốt sổ ngày")
 @RestController
 @RequestMapping("/api/v1/reports")
 public class StockReportController {
@@ -34,19 +40,19 @@ public class StockReportController {
         this.dailyReportService = dailyReportService;
     }
 
-    @Operation(summary = "Báo cáo định giá tồn kho theo chi nhánh / toàn tenant (FR-REP-02)")
-    @PreAuthorize("hasRole('OWNER')")
-    @GetMapping("/stock/valuation")
-    public StockReportViews.ValuationSummary valuation(
+    @Operation(summary = "Giá trị tồn = on_hand × giá vốn, theo chi nhánh hoặc toàn cửa hàng (FR-REP-02) - Owner, Staff")
+    @PreAuthorize("hasAnyRole('OWNER','STAFF')")
+    @GetMapping("/inventory-value")
+    public StockReportViews.ValuationSummary inventoryValue(
             @AuthenticationPrincipal AuthenticatedUser user,
             @Parameter(description = "ID chi nhánh (để trống nếu xem toàn bộ cửa hàng)")
             @RequestParam(required = false) UUID branchId) {
         return stockReportService.getValuation(user.tenantId(), branchId);
     }
 
-    @Operation(summary = "Top sản phẩm bán chạy theo số lượng và doanh thu (FR-REP-02)")
-    @PreAuthorize("hasRole('OWNER')")
-    @GetMapping("/stock/top-selling")
+    @Operation(summary = "Top bán chạy theo số lượng và doanh thu (mặc định top 10, 30 ngày) (FR-REP-02) - Owner, Staff")
+    @PreAuthorize("hasAnyRole('OWNER','STAFF')")
+    @GetMapping("/top-selling")
     public List<StockReportViews.TopSellingItem> topSelling(
             @AuthenticationPrincipal AuthenticatedUser user,
             @Parameter(description = "Số ngày gần nhất tính doanh số", example = "30")
@@ -56,9 +62,9 @@ public class StockReportController {
         return stockReportService.getTopSelling(user.tenantId(), days, limit);
     }
 
-    @Operation(summary = "Danh sách hàng tồn chậm (còn tồn nhưng không bán trong N ngày) (FR-REP-02)")
-    @PreAuthorize("hasRole('OWNER')")
-    @GetMapping("/stock/slow-moving")
+    @Operation(summary = "Hàng tồn chậm: còn tồn nhưng không bán trong N ngày (mặc định 30) (FR-REP-02) - Owner, Staff")
+    @PreAuthorize("hasAnyRole('OWNER','STAFF')")
+    @GetMapping("/slow-moving")
     public List<StockReportViews.SlowMovingItem> slowMoving(
             @AuthenticationPrincipal AuthenticatedUser user,
             @Parameter(description = "Số ngày không phát sinh đơn hàng", example = "30")
@@ -66,22 +72,21 @@ public class StockReportController {
         return stockReportService.getSlowMoving(user.tenantId(), days);
     }
 
-    @Operation(summary = "Lịch sử báo cáo chốt sổ hàng ngày (FR-SIM-03, JC-31)")
+    @Operation(summary = "(bổ sung) Lịch sử chốt sổ ngày theo chi nhánh × kênh (FR-SIM-03) - Owner")
     @PreAuthorize("hasRole('OWNER')")
     @GetMapping("/daily")
-    public List<DailyReport> dailyReports(@AuthenticationPrincipal AuthenticatedUser user) {
+    public List<DailyReportView> dailyReports(@AuthenticationPrincipal AuthenticatedUser user) {
         return dailyReportService.getDailyReports(user.tenantId());
     }
 
-    @Operation(summary = "Chủ động chạy chốt sổ báo cáo ngày (Owner)")
+    @Operation(summary = "(bổ sung) Chốt sổ một ngày ngay (mặc định hôm qua theo UTC), chạy lại thì ghi đè - Owner")
     @PreAuthorize("hasRole('OWNER')")
     @PostMapping("/daily/run")
-    public DailyReport triggerDailyReport(
+    public List<DailyReportView> triggerDailyReport(
             @AuthenticationPrincipal AuthenticatedUser user,
-            @Parameter(description = "Ngày cần chốt (mặc định hôm qua)")
+            @Parameter(description = "Ngày cần chốt (yyyy-MM-dd), mặc định hôm qua")
             @RequestParam(required = false) @DateTimeFormat(iso = DateTimeFormat.ISO.DATE) LocalDate date) {
-        LocalDate targetDate = date != null ? date : LocalDate.now().minusDays(1);
+        LocalDate targetDate = date != null ? date : LocalDate.now(ZoneOffset.UTC).minusDays(1);
         return dailyReportService.generateDailyReport(user.tenantId(), targetDate);
     }
 }
-

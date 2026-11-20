@@ -32,6 +32,7 @@ import java.time.LocalDate;
 import java.time.ZoneOffset;
 import java.time.format.DateTimeFormatter;
 import java.util.ArrayList;
+import java.util.Comparator;
 import java.util.List;
 import java.util.Map;
 import java.util.UUID;
@@ -110,6 +111,8 @@ public class StocktakeService {
         Stocktake stocktake = stocktakeRepository.save(new Stocktake(tenantId, branchId, newCode(tenantId)));
 
         List<StocktakeItem> items = new ArrayList<>();
+        // Chuan 7.2.2: khoa nhieu dong ton theo thu tu sku_id tang dan de tranh deadlock
+        targetSkus = targetSkus.stream().sorted(Comparator.comparing(Sku::getId)).toList();
         for (Sku sku : targetSkus) {
             stockBalanceRepository.insertIfAbsent(tenantId, branchId, sku.getId());
             StockBalance balance = stockBalanceRepository.findForUpdate(tenantId, branchId, sku.getId())
@@ -137,10 +140,12 @@ public class StocktakeService {
                 throw new BusinessException(ErrorCode.IV40001, "Số lượng đếm không được âm");
             }
             StocktakeItem item = itemMap.get(c.skuId());
-            if (item != null) {
-                item.updateCountedQty(c.countedQuantity());
-                itemRepository.save(item);
+            if (item == null) {
+                // Bo qua im lang thi nguoi dem tuong da ghi nhan ma so lieu that bi mat
+                throw new BusinessException(ErrorCode.IV40001, "SKU " + c.skuId() + " không thuộc phiên kiểm kê này");
             }
+            item.updateCountedQty(c.countedQuantity());
+            itemRepository.save(item);
         }
 
         return get(tenantId, stocktakeId);
@@ -155,7 +160,9 @@ public class StocktakeService {
         stocktake.markApproved(userId);
         stocktakeRepository.save(stocktake);
 
-        List<StocktakeItem> items = itemRepository.findByTenantIdAndStocktakeId(tenantId, stocktakeId);
+        List<StocktakeItem> items = itemRepository.findByTenantIdAndStocktakeId(tenantId, stocktakeId).stream()
+                .sorted(Comparator.comparing(StocktakeItem::getSkuId)) // Chuan 7.2.2: khoa theo sku_id tang dan
+                .toList();
         for (StocktakeItem item : items) {
             Integer diff = item.getDifference();
             if (diff == null || diff == 0) {

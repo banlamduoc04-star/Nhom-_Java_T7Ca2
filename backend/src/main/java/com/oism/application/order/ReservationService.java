@@ -2,6 +2,7 @@ package com.oism.application.order;
 
 import com.oism.application.inventory.InventoryLedgerService;
 import com.oism.application.inventory.LedgerEntry;
+import com.oism.application.inventory.StockAlertService;
 import com.oism.domain.exception.BusinessException;
 import com.oism.domain.exception.ErrorCode;
 import com.oism.domain.model.OrderItem;
@@ -30,15 +31,18 @@ public class ReservationService {
     private final SkuRepository skuRepository;
     private final InventoryLedgerService ledgerService;
     private final OrderItemRepository orderItemRepository;
+    private final StockAlertService stockAlertService;
 
     public ReservationService(StockBalanceRepository stockBalanceRepository,
                               SkuRepository skuRepository,
                               InventoryLedgerService ledgerService,
-                              OrderItemRepository orderItemRepository) {
+                              OrderItemRepository orderItemRepository,
+                              StockAlertService stockAlertService) {
         this.stockBalanceRepository = stockBalanceRepository;
         this.skuRepository = skuRepository;
         this.ledgerService = ledgerService;
         this.orderItemRepository = orderItemRepository;
+        this.stockAlertService = stockAlertService;
     }
 
     @Transactional(propagation = Propagation.MANDATORY)
@@ -61,6 +65,8 @@ public class ReservationService {
 
             balance.applyReserved(balance.getReserved() + item.getQuantity());
             stockBalanceRepository.save(balance);
+            // FR-REP-03: giu hang lam giam available (vd don san) -> co the mo canh bao
+            stockAlertService.checkStockLevel(tenantId, branchId, item.getSkuId());
         }
     }
 
@@ -76,6 +82,8 @@ public class ReservationService {
 
             balance.applyReserved(Math.max(0, balance.getReserved() - item.getQuantity()));
             stockBalanceRepository.save(balance);
+            // FR-REP-03: nha hang (huy/qua han) tang available -> co the dong canh bao
+            stockAlertService.checkStockLevel(tenantId, branchId, item.getSkuId());
         }
     }
 

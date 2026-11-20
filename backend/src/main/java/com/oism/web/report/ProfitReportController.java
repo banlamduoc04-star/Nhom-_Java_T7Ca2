@@ -2,7 +2,7 @@ package com.oism.web.report;
 
 import com.oism.application.auth.AuthenticatedUser;
 import com.oism.application.report.ProfitReportService;
-import com.oism.application.report.ProfitReportService.ProfitSummary;
+import com.oism.application.report.ProfitReportService.ProfitReportView;
 import com.oism.domain.model.OrderChannel;
 import io.swagger.v3.oas.annotations.Operation;
 import io.swagger.v3.oas.annotations.tags.Tag;
@@ -34,8 +34,8 @@ public class ProfitReportController {
     }
 
     @GetMapping
-    @Operation(summary = "Báo cáo lợi nhuận gộp, lọc theo khoảng thời gian, chi nhánh, kênh, SKU")
-    public ProfitSummary getProfitReport(
+    @Operation(summary = "Doanh thu, giá vốn, lợi nhuận gộp (tổng + theo SKU), đơn Confirmed/Completed; lọc ngày, chi nhánh, kênh, SKU - Owner. Lỗi: 400 RP40001")
+    public ProfitReportView getProfitReport(
             @AuthenticationPrincipal AuthenticatedUser user,
             @RequestParam(required = false) @DateTimeFormat(iso = DateTimeFormat.ISO.DATE_TIME) Instant from,
             @RequestParam(required = false) @DateTimeFormat(iso = DateTimeFormat.ISO.DATE_TIME) Instant to,
