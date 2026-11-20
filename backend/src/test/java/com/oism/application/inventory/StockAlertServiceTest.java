@@ -59,7 +59,7 @@ class StockAlertServiceTest {
         Sku sku = new Sku(tenantId, prodId, "JEAN-BLUE", Map.of(), null,
                 BigDecimal.valueOf(300_000), BigDecimal.valueOf(250_000), 5); // reorderPoint = 5
         ReflectionTestUtils.setField(sku, "id", skuId);
-        when(skuRepository.findById(skuId)).thenReturn(Optional.of(sku));
+        when(skuRepository.findByIdAndTenantId(skuId, tenantId)).thenReturn(Optional.of(sku));
     }
 
     @Test
@@ -95,7 +95,7 @@ class StockAlertServiceTest {
     }
 
     @Test
-    @DisplayName("Tự động chuyển RESOLVED khi tồn kho khả dụng vượt ngưỡng đặt lại")
+    @DisplayName("Tự động chuyển CLOSED khi tồn kho khả dụng vượt ngưỡng đặt lại")
     void testAutoResolveAlertWhenRestocked() {
         StockBalance balance = new StockBalance(tenantId, branchId, skuId, 20, 2); // available = 18 > 5
         when(balanceRepository.findForUpdate(tenantId, branchId, skuId)).thenReturn(Optional.of(balance));
@@ -106,9 +106,40 @@ class StockAlertServiceTest {
 
         service.checkStockLevel(tenantId, branchId, skuId);
 
-        assertEquals(StockAlert.Status.RESOLVED, existingAlert.getStatus());
-        assertNotNull(existingAlert.getResolvedAt());
+        assertEquals(StockAlert.Status.CLOSED, existingAlert.getStatus());
+        assertNotNull(existingAlert.getClosedAt());
         verify(alertRepository).save(existingAlert);
         verify(eventPublisher).publishEvent(any(Object.class));
+    }
+
+    @Test
+    @DisplayName("Không theo dõi khi reorder_point = 0: không mở mới, đóng cảnh báo đang mở")
+    void zeroThresholdClosesOpenAlertAndNeverOpens() {
+        Sku untracked = new Sku(tenantId, prodId, "JEAN-NONE", Map.of(), null,
+                BigDecimal.valueOf(300_000), BigDecimal.valueOf(250_000), 0);
+        ReflectionTestUtils.setField(untracked, "id", skuId);
+        when(skuRepository.findByIdAndTenantId(skuId, tenantId)).thenReturn(Optional.of(untracked));
+        when(balanceRepository.findForUpdate(tenantId, branchId, skuId))
+                .thenReturn(Optional.of(new StockBalance(tenantId, branchId, skuId, 0, 0)));
+        StockAlert existingAlert = new StockAlert(tenantId, branchId, skuId, 5, 1);
+        when(alertRepository.findByTenantIdAndBranchIdAndSkuIdAndStatus(
+                tenantId, branchId, skuId, StockAlert.Status.OPEN)).thenReturn(Optional.of(existingAlert));
+
+        service.checkStockLevel(tenantId, branchId, skuId);
+
+        assertEquals(StockAlert.Status.CLOSED, existingAlert.getStatus());
+        verify(alertRepository).save(existingAlert);
+    }
+
+    @Test
+    @DisplayName("Đóng cảnh báo của tenant khác -> 404 IV40401")
+    void closeAlertOfOtherTenantIsNotFound() {
+        UUID alertId = UUID.randomUUID();
+        when(alertRepository.findByIdAndTenantId(alertId, tenantId)).thenReturn(Optional.empty());
+
+        com.oism.domain.exception.BusinessException ex = org.junit.jupiter.api.Assertions.assertThrows(
+                com.oism.domain.exception.BusinessException.class, () -> service.closeAlert(tenantId, alertId));
+
+        assertEquals(com.oism.domain.exception.ErrorCode.IV40401, ex.getErrorCode());
     }
 }

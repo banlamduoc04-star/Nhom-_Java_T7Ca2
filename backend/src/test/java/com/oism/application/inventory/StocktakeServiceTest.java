@@ -2,6 +2,8 @@ package com.oism.application.inventory;
 
 import com.oism.application.inventory.StocktakeService.CountInput;
 import com.oism.application.inventory.StocktakeService.StocktakeView;
+import com.oism.domain.exception.BusinessException;
+import com.oism.domain.exception.ErrorCode;
 import com.oism.domain.model.Branch;
 import com.oism.domain.model.BranchType;
 import com.oism.domain.model.CatalogStatus;
@@ -35,7 +37,9 @@ import java.util.Optional;
 import java.util.UUID;
 
 import static org.junit.jupiter.api.Assertions.assertEquals;
+import static org.junit.jupiter.api.Assertions.assertThrows;
 import static org.mockito.ArgumentMatchers.any;
+import static org.mockito.Mockito.times;
 import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.when;
 
@@ -105,6 +109,46 @@ class StocktakeServiceTest {
         assertEquals(18, item.getCountedQty());
         assertEquals(-2, item.getDifference());
         verify(itemRepository).save(item);
+    }
+
+    @Test
+    void recordCounts_rejectsSkuOutsideSessionWithIV40001() {
+        UUID stocktakeId = UUID.randomUUID();
+        Stocktake stocktake = new Stocktake(tenantId, branchId, "KK-002");
+        ReflectionTestUtils.setField(stocktake, "id", stocktakeId);
+        when(stocktakeRepository.findByIdAndTenantId(stocktakeId, tenantId)).thenReturn(Optional.of(stocktake));
+        when(itemRepository.findByTenantIdAndStocktakeId(tenantId, stocktakeId))
+                .thenReturn(List.of(new StocktakeItem(tenantId, stocktakeId, skuId, 20)));
+
+        BusinessException ex = assertThrows(BusinessException.class, () -> service.recordCounts(
+                tenantId, userId, stocktakeId, List.of(new CountInput(UUID.randomUUID(), 5))));
+
+        assertEquals(ErrorCode.IV40001, ex.getErrorCode());
+    }
+
+    @Test
+    void approve_postsAdjustmentsInAscendingSkuOrder() {
+        UUID stocktakeId = UUID.randomUUID();
+        Stocktake stocktake = new Stocktake(tenantId, branchId, "KK-003");
+        ReflectionTestUtils.setField(stocktake, "id", stocktakeId);
+        when(stocktakeRepository.findByIdAndTenantId(stocktakeId, tenantId)).thenReturn(Optional.of(stocktake));
+        UUID low = new UUID(0, 1);
+        UUID high = new UUID(0, 2);
+        Sku skuLow = new Sku(tenantId, UUID.randomUUID(), "LOW", Map.of(), null, BigDecimal.TEN, null, 0);
+        Sku skuHigh = new Sku(tenantId, UUID.randomUUID(), "HIGH", Map.of(), null, BigDecimal.TEN, null, 0);
+        when(skuRepository.findByIdAndTenantId(low, tenantId)).thenReturn(Optional.of(skuLow));
+        when(skuRepository.findByIdAndTenantId(high, tenantId)).thenReturn(Optional.of(skuHigh));
+        StocktakeItem itemHigh = new StocktakeItem(tenantId, stocktakeId, high, 5);
+        itemHigh.updateCountedQty(6);
+        StocktakeItem itemLow = new StocktakeItem(tenantId, stocktakeId, low, 5);
+        itemLow.updateCountedQty(4);
+        when(itemRepository.findByTenantIdAndStocktakeId(tenantId, stocktakeId)).thenReturn(List.of(itemHigh, itemLow));
+
+        service.approve(tenantId, userId, stocktakeId);
+
+        ArgumentCaptor<LedgerEntry> captor = ArgumentCaptor.forClass(LedgerEntry.class);
+        verify(ledgerService, times(2)).post(captor.capture());
+        assertEquals(List.of(low, high), captor.getAllValues().stream().map(LedgerEntry::skuId).toList());
     }
 
     @Test

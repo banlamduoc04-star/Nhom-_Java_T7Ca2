@@ -34,6 +34,7 @@ import java.util.UUID;
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertThrows;
 import static org.mockito.ArgumentMatchers.any;
+import static org.mockito.Mockito.times;
 import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.when;
 
@@ -93,6 +94,29 @@ class StockTransferServiceTest {
                 () -> service.create(tenantId, userId, fromBranchId, fromBranchId, List.of(new TransferLine(skuId, 5))));
 
         assertEquals(ErrorCode.IV40001, ex.getErrorCode());
+    }
+
+    @Test
+    void dispatch_postsLedgerInAscendingSkuOrder() {
+        UUID transferId = UUID.randomUUID();
+        StockTransfer transfer = new StockTransfer(tenantId, fromBranchId, toBranchId, "CK-002");
+        ReflectionTestUtils.setField(transfer, "id", transferId);
+        when(transferRepository.findByIdAndTenantId(transferId, tenantId)).thenReturn(Optional.of(transfer));
+        UUID low = new UUID(0, 1);
+        UUID high = new UUID(0, 2);
+        when(skuRepository.findByIdAndTenantId(low, tenantId)).thenReturn(Optional.of(
+                new Sku(tenantId, UUID.randomUUID(), "LOW", Map.of(), null, BigDecimal.TEN, null, 0)));
+        when(skuRepository.findByIdAndTenantId(high, tenantId)).thenReturn(Optional.of(
+                new Sku(tenantId, UUID.randomUUID(), "HIGH", Map.of(), null, BigDecimal.TEN, null, 0)));
+        when(itemRepository.findByTenantIdAndTransferId(tenantId, transferId)).thenReturn(List.of(
+                new StockTransferItem(tenantId, transferId, high, 1),
+                new StockTransferItem(tenantId, transferId, low, 1)));
+
+        service.dispatch(tenantId, userId, transferId);
+
+        ArgumentCaptor<LedgerEntry> captor = ArgumentCaptor.forClass(LedgerEntry.class);
+        verify(ledgerService, times(2)).post(captor.capture());
+        assertEquals(List.of(low, high), captor.getAllValues().stream().map(LedgerEntry::skuId).toList());
     }
 
     @Test

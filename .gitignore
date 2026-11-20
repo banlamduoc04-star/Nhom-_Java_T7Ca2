@@ -36,5 +36,7 @@ backend/target/
 frontend-*/node_modules/
 frontend-*/dist/
 
-# Postman desktop app metadata
+# Postman & Playwright E2E (chi dung local, khong day len GitHub)
 .postman/
+postman/
+e2e/

@@ -24,7 +24,7 @@ import java.util.concurrent.atomic.AtomicReference;
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertNotNull;
 
-class FlashSaleTest extends AbstractIntegrationTest {
+class FlashSaleIT extends AbstractIntegrationTest {
 
     @Autowired
     OrderService orderService;
@@ -97,11 +97,35 @@ class FlashSaleTest extends AbstractIntegrationTest {
         assertEquals(0, stockReserved.get("available").asInt(), "Hàng khả dụng cuối phải = 0, không âm");
 
         assertNotNull(createdOrder.get());
-        orderService.confirm(tenantId, createdOrder.get().id(), userId);
+        orderService.confirm(tenantId, userId, createdOrder.get().id());
 
         JsonNode stockFinal = GET(s, "/api/v1/stock?skuId=" + skuId, 200).get("content").get(0);
         assertEquals(0, stockFinal.get("onHand").asInt(), "Tồn kho cuối phải = 0 sau khi xuất hàng");
         assertEquals(0, stockFinal.get("reserved").asInt(), "Lượng giữ hàng về 0 sau khi xuất hàng");
         assertEquals(0, stockFinal.get("available").asInt(), "Hàng khả dụng cuối phải = 0");
+    }
+
+    /**
+     * Nghiem thu Sprint 3 + NFR-PERF-02 qua dung API demo: man Simulator gui 50 don dong thoi vao SKU con 1 cai
+     * -> dung 1 don giu hang, 49 don loi IV40901, available = 0.
+     */
+    @Test
+    void simulator_50ConcurrentOrders_1Stock_exactlyOneReserved() {
+        Session s = newTenant();
+        String skuId = newProduct(s, "Ao Flash Sim", "FLASH-SIM-" + UUID.randomUUID().toString().substring(0, 6),
+                "100000").get("id").asText();
+        confirmedReceipt(s, skuId, 1, "50000");
+
+        JsonNode result = POST(s, "/api/v1/simulator/orders", java.util.Map.of("branchId", s.branchId(),
+                "channel", "SHOPEE", "skuId", skuId, "quantity", 1, "orderCount", 50), 200);
+
+        assertEquals(50, result.get("total").asInt());
+        assertEquals(1, result.get("successful").asInt());
+        assertEquals(49, result.get("failed").asInt());
+        assertEquals(49, result.get("errorCounts").get("IV40901").asInt());
+        JsonNode stock = GET(s, "/api/v1/stock?skuId=" + skuId, 200).get("content").get(0);
+        assertEquals(1, stock.get("onHand").asInt());
+        assertEquals(1, stock.get("reserved").asInt());
+        assertEquals(0, stock.get("available").asInt());
     }
 }

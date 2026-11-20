@@ -80,6 +80,20 @@ class GlobalExceptionHandlerTest {
                 .andExpect(jsonPath("$.details").isArray());
     }
 
+    @Test
+    void concurrentDuplicateExternalOrderHittingUniqueIndexIsOD40902() throws Exception {
+        mvc.perform(get("/api/v1/probe/duplicate-external"))
+                .andExpect(status().isConflict())
+                .andExpect(jsonPath("$.errorCode").value("OD40902"));
+    }
+
+    @Test
+    void unknownConstraintViolationStaysSY50001() throws Exception {
+        mvc.perform(get("/api/v1/probe/other-constraint"))
+                .andExpect(status().isInternalServerError())
+                .andExpect(jsonPath("$.errorCode").value("SY50001"));
+    }
+
     record Body(@NotBlank(message = "Tên không được để trống") String name) {
     }
 
@@ -102,9 +116,38 @@ class GlobalExceptionHandlerTest {
             throw new IllegalStateException("chi tiet noi bo");
         }
 
+        @GetMapping("/probe/duplicate-external")
+        String duplicateExternal() {
+            throw new org.springframework.dao.DataIntegrityViolationException("could not execute statement",
+                    new RuntimeException("ERROR: duplicate key value violates unique constraint \"uq_orders_external\""));
+        }
+
+        @GetMapping("/probe/other-constraint")
+        String otherConstraint() {
+            throw new org.springframework.dao.DataIntegrityViolationException("could not execute statement",
+                    new RuntimeException("ERROR: violates check constraint \"ck_stock_balance_reserved\""));
+        }
+
         @PostMapping({"/auth/probe", "/products/probe"})
         String create(@Valid @RequestBody Body body) {
             return body.name();
         }
+    }
+
+    @org.junit.jupiter.params.ParameterizedTest
+    @org.junit.jupiter.params.provider.CsvSource({
+            "/api/v1/products, PR40001", "/api/v1/skus/1, PR40001",
+            "/api/v1/orders, OD40001", "/api/v1/webhooks/shopee, OD40001",
+            "/api/v1/pos/checkout, OD40001", "/api/v1/simulator/orders, OD40001",
+            "/api/v1/reports/profit, RP40001",
+            "/api/v1/purchase-receipts, IV40001", "/api/v1/alerts/stock/1/read, IV40001",
+            "/api/v1/users, AU40001", "/api/v1/branches, AU40001", "/api/v1/settings, AU40001",
+            "/api/v1/auth/login, AU40001"
+    })
+    void validationCodeFollowsModuleOfPath(String path, String expected) {
+        org.springframework.mock.web.MockHttpServletRequest request =
+                new org.springframework.mock.web.MockHttpServletRequest("POST", path);
+        org.junit.jupiter.api.Assertions.assertEquals(expected, GlobalExceptionHandler.validationCode(
+                new org.springframework.web.context.request.ServletWebRequest(request)));
     }
 }

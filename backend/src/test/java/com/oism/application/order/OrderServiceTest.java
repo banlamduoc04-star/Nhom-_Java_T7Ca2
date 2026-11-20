@@ -48,6 +48,7 @@ class OrderServiceTest {
     @Mock SkuRepository skuRepository;
     @Mock ReservationService reservationService;
     @Mock com.oism.domain.repository.TenantRepository tenantRepository;
+    @Mock org.springframework.context.ApplicationEventPublisher eventPublisher;
 
     OrderService service;
 
@@ -59,7 +60,7 @@ class OrderServiceTest {
     @BeforeEach
     void setup() {
         service = new OrderService(orderRepository, itemRepository, historyRepository,
-                branchRepository, skuRepository, reservationService, tenantRepository);
+                branchRepository, skuRepository, reservationService, tenantRepository, eventPublisher);
 
         Branch branch = new Branch(tenantId, "Chi nhánh 1", BranchType.STORE);
         ReflectionTestUtils.setField(branch, "id", branchId);
@@ -135,5 +136,29 @@ class OrderServiceTest {
 
         assertEquals(OrderStatus.CANCELLED, view.status());
         verify(reservationService).release(tenantId, branchId, List.of(item));
+    }
+
+    @Test
+    void createAndReserve_fromMarketplace_publishesOrderCreatedEvent() {
+        service.createAndReserve(tenantId, null, branchId, OrderChannel.SHOPEE,
+                "SP-777", "Khách Shopee", null, null, List.of(new OrderLine(skuId, 1)));
+
+        org.mockito.ArgumentCaptor<com.oism.domain.event.OrderCreatedEvent> event =
+                org.mockito.ArgumentCaptor.forClass(com.oism.domain.event.OrderCreatedEvent.class);
+        verify(eventPublisher).publishEvent(event.capture());
+        assertEquals(tenantId, event.getValue().tenantId());
+        assertEquals("SHOPEE", event.getValue().channel());
+    }
+
+    @Test
+    void createDraft_publishesOrderCreatedEvent_butFailedReservationDoesNot() {
+        service.createDraft(tenantId, userId, branchId, "Khách", null, null, List.of(new OrderLine(skuId, 1)));
+        verify(eventPublisher).publishEvent(any(com.oism.domain.event.OrderCreatedEvent.class));
+
+        doThrow(new BusinessException(ErrorCode.IV40901, "Không đủ hàng khả dụng"))
+                .when(reservationService).reserve(any(), any(), any());
+        assertThrows(BusinessException.class, () -> service.createAndReserve(tenantId, null, branchId,
+                OrderChannel.TIKTOK, "TT-9", null, null, null, List.of(new OrderLine(skuId, 99))));
+        verify(eventPublisher, org.mockito.Mockito.times(1)).publishEvent(any(Object.class));
     }
 }
