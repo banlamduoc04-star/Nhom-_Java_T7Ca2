@@ -7,18 +7,21 @@ import {
   CheckCircleOutlined, CloseCircleOutlined, FireOutlined, PlayCircleOutlined, SendOutlined,
 } from '@ant-design/icons'
 import { branchApi, simulatorApi, skuApi } from '../../api/services'
-import type { Branch, SimulationResult, SkuSearchItem } from '../../api/types'
+import { errorText } from '../../api/client'
+import type { Branch, OrderView, SimulationResult, SkuSearchItem, WebhookChannel } from '../../api/types'
+import { palette } from '../../theme'
 
 interface SimulateFormValues {
   branchId: string
-  channel: 'SHOPEE' | 'LAZADA' | 'TIKTOK'
+  channel: WebhookChannel
   skuId: string
   orderCount: number
   quantityPerOrder: number
 }
 
 interface WebhookFormValues {
-  channel: 'SHOPEE' | 'LAZADA' | 'TIKTOK'
+  channel: WebhookChannel
+  apiKey: string
   externalOrderId: string
   branchId: string
   customerName?: string
@@ -38,7 +41,7 @@ export default function SimulatorPage() {
 
   // State cho Webhook
   const [webhookLoading, setWebhookLoading] = useState(false)
-  const [webhookResult, setWebhookResult] = useState<unknown>(null)
+  const [webhookResult, setWebhookResult] = useState<OrderView | { error: string } | null>(null)
 
   const [simForm] = Form.useForm<SimulateFormValues>()
   const [webhookForm] = Form.useForm<WebhookFormValues>()
@@ -68,13 +71,14 @@ export default function SimulatorPage() {
       const result = await simulatorApi.simulate({
         branchId: values.branchId,
         channel: values.channel,
+        skuId: values.skuId,
+        quantity: values.quantityPerOrder,
         orderCount: values.orderCount,
-        items: [{ skuId: values.skuId, quantity: values.quantityPerOrder }],
       })
       setSimResult(result)
-      message.success(`Hoàn tất mô phỏng: ${result.successful}/${result.requested} đơn thành công`)
-    } catch (err: any) {
-      message.error(err.response?.data?.message || 'Mô phỏng thất bại')
+      message.success(`Hoàn tất mô phỏng: ${result.successful}/${result.total} đơn thành công`)
+    } catch (err) {
+      message.error(errorText(err))
     } finally {
       setSimLoading(false)
     }
@@ -85,7 +89,7 @@ export default function SimulatorPage() {
     setWebhookLoading(true)
     setWebhookResult(null)
     try {
-      const result = await simulatorApi.sendWebhook(values.channel.toLowerCase(), {
+      const result = await simulatorApi.sendWebhook(values.channel, values.apiKey.trim(), {
         branchId: values.branchId,
         externalOrderId: values.externalOrderId,
         customerName: values.customerName,
@@ -95,9 +99,9 @@ export default function SimulatorPage() {
       })
       setWebhookResult(result)
       message.success(`Đã nhận webhook và tạo đơn hàng ${result.code}`)
-    } catch (err: any) {
-      setWebhookResult({ error: err.response?.data || err.message })
-      message.error(err.response?.data?.message || 'Gửi webhook thất bại')
+    } catch (err) {
+      setWebhookResult({ error: errorText(err) })
+      message.error(errorText(err))
     } finally {
       setWebhookLoading(false)
     }
@@ -105,8 +109,8 @@ export default function SimulatorPage() {
 
   return (
     <div>
-      <Typography.Title level={3} style={{ marginBottom: 16 }}>
-        <FireOutlined style={{ color: '#ff4d4f' }} /> Bộ Giả Lập Đơn Hàng & Webhook Sàn TMĐT
+      <Typography.Title level={2} style={{ marginBottom: 16 }}>
+        <FireOutlined style={{ color: palette.dangerText }} /> Bộ Giả Lập Đơn Hàng & Webhook Sàn TMĐT
       </Typography.Title>
 
       <Row gutter={24}>
@@ -135,7 +139,6 @@ export default function SimulatorPage() {
                 <Select
                   options={[
                     { value: 'SHOPEE', label: 'Shopee' },
-                    { value: 'LAZADA', label: 'Lazada' },
                     { value: 'TIKTOK', label: 'TikTok Shop' },
                   ]}
                 />
@@ -189,19 +192,19 @@ export default function SimulatorPage() {
                 borderRadius: 8,
                 border: simResult.failed > 0 ? '1px solid #ffa39e' : '1px solid #b7eb8f'
               }}>
-                <Typography.Title level={4} style={{ color: simResult.failed > 0 ? '#cf1322' : '#389e0d', marginTop: 0 }}>
+                <Typography.Title level={4} style={{ color: simResult.failed > 0 ? palette.dangerText : palette.successText, marginTop: 0 }}>
                   {simResult.failed > 0 ? '🔥 KẾT QUẢ FLASH SALE (ĐÃ CHẶN BÁN VƯỢT)' : '✅ KẾT QUẢ FLASH SALE'}
                 </Typography.Title>
 
                 <Row gutter={16} style={{ marginBottom: 16 }}>
                   <Col span={8}>
-                    <Statistic title="Tổng yêu cầu" value={simResult.requested} />
+                    <Statistic title="Tổng yêu cầu" value={simResult.total} />
                   </Col>
                   <Col span={8}>
-                    <Statistic title="Đơn giật thành công" value={simResult.successful} valueStyle={{ color: '#3f8600' }} prefix={<CheckCircleOutlined />} />
+                    <Statistic title="Đơn giật thành công" value={simResult.successful} valueStyle={{ color: palette.successText }} prefix={<CheckCircleOutlined />} />
                   </Col>
                   <Col span={8}>
-                    <Statistic title="Đơn bị chặn (Hết hàng)" value={simResult.failed} valueStyle={{ color: '#cf1322' }} prefix={<CloseCircleOutlined />} />
+                    <Statistic title="Đơn bị chặn (Hết hàng)" value={simResult.failed} valueStyle={{ color: palette.dangerText }} prefix={<CloseCircleOutlined />} />
                   </Col>
                 </Row>
 
@@ -210,7 +213,7 @@ export default function SimulatorPage() {
                   <strong>{simResult.durationMs} ms</strong>
                 </div>
                 <Progress
-                  percent={Math.round((simResult.successful / simResult.requested) * 100)}
+                  percent={Math.round((simResult.successful / Math.max(simResult.total, 1)) * 100)}
                   status={simResult.failed > 0 ? 'exception' : 'success'}
                   strokeColor={{ '0%': '#108ee9', '100%': '#87d068' }}
                 />
@@ -228,12 +231,14 @@ export default function SimulatorPage() {
                   </div>
                 )}
 
-                {simResult.errors.length > 0 && (
+                {Object.keys(simResult.errorCounts).length > 0 && (
                   <div style={{ marginTop: 16, padding: 12, background: '#fff', borderLeft: '4px solid #cf1322' }}>
-                    <strong>Log hệ thống (Mẫu):</strong>
-                    <p style={{ color: '#cf1322', margin: '4px 0 0 0', fontFamily: 'monospace' }}>
-                      {simResult.errors[0]}
-                    </p>
+                    <strong>Mã lỗi trả về:</strong>
+                    {Object.entries(simResult.errorCounts).map(([code, count]) => (
+                      <p key={code} style={{ color: palette.dangerText, margin: '4px 0 0 0', fontFamily: 'monospace' }}>
+                        {code}: {count} đơn
+                      </p>
+                    ))}
                   </div>
                 )}
               </div>
@@ -248,7 +253,7 @@ export default function SimulatorPage() {
               type="success"
               showIcon
               message="Đồng bộ Đơn hàng Đa kênh Real-time"
-              description="Bắn payload đơn hàng từ sàn TMĐT (Shopee, Lazada, TikTok Shop) vào endpoint public /api/v1/webhooks/{channel} để tự động tạo đơn và giữ hàng ngay lập tức."
+              description="Gửi payload đơn từ sàn Shopee / TikTok Shop vào /api/v1/webhooks/{channel} kèm API key của cửa hàng (header X-Api-Key). Đơn được tạo và giữ hàng ngay."
               style={{ marginBottom: 16 }}
             />
 
@@ -271,7 +276,6 @@ export default function SimulatorPage() {
                     <Select
                       options={[
                         { value: 'SHOPEE', label: 'Shopee Webhook' },
-                        { value: 'LAZADA', label: 'Lazada Webhook' },
                         { value: 'TIKTOK', label: 'TikTok Shop Webhook' },
                       ]}
                     />
@@ -283,6 +287,15 @@ export default function SimulatorPage() {
                   </Form.Item>
                 </Col>
               </Row>
+
+              <Form.Item
+                name="apiKey"
+                label="API key webhook của sàn (header X-Api-Key)"
+                extra="Sinh key tại Cài đặt > API key webhook sàn. Key phải đúng sàn đã chọn."
+                rules={[{ required: true, whitespace: true, message: 'Nhập API key webhook' }]}
+              >
+                <Input.Password placeholder="oism_..." autoComplete="off" />
+              </Form.Item>
 
               <Form.Item name="branchId" label="Chi nhánh kho xuất" rules={[{ required: true, message: 'Chọn chi nhánh' }]}>
                 <Select placeholder="Chọn chi nhánh" options={branches.map((b) => ({ value: b.id, label: b.name }))} />

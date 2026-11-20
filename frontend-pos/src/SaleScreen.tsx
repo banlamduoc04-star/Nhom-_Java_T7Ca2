@@ -1,5 +1,8 @@
 import { useCallback, useEffect, useRef, useState, type FormEvent } from 'react'
-import { errorText, logout, lookupBarcode, posCheckout, searchSkus, type CheckoutReceipt, type Me } from './api'
+import { errorText, logout, lookupBarcode, posCheckout, searchSkus, USE_MOCK, type CheckoutReceipt, type Me } from './api'
+import { subscribeNewOrders, type OrderCreatedEvent } from './realtime'
+import QrCode from './QrCode'
+import { useDialogFocus } from './useDialogFocus'
 import { addToCart, cartTotal, itemCount, looksLikeBarcode, removeLine, setQuantity, type CartLine, type SkuInfo } from './cart'
 
 interface Props {
@@ -31,6 +34,35 @@ export default function SaleScreen({ user, onLogout }: Props) {
 
   // Receipt modal state
   const [receipt, setReceipt] = useState<CheckoutReceipt | null>(null)
+
+  const payDialogRef = useRef<HTMLDivElement>(null)
+  const receiptDialogRef = useRef<HTMLDivElement>(null)
+  useDialogFocus(payDialogRef, payOpen)
+  useDialogFocus(receiptDialogRef, receipt !== null)
+
+  // FR-POS-03: thanh toan xong tu mo hop thoai in hoa don 80 mm (sau khi hoa don da hien tren man hinh)
+  useEffect(() => {
+    if (!receipt) return
+    const timer = setTimeout(() => window.print(), 300)
+    return () => clearTimeout(timer)
+  }, [receipt])
+
+  // FR-SIM-02: thong bao don moi cua cua hang (don san, don tay, POS khac)
+  const [newOrder, setNewOrder] = useState<OrderCreatedEvent | null>(null)
+
+  useEffect(() => {
+    if (USE_MOCK) return
+    let hideTimer: ReturnType<typeof setTimeout> | undefined
+    const unsubscribe = subscribeNewOrders(user.tenantId, (event) => {
+      setNewOrder(event)
+      clearTimeout(hideTimer)
+      hideTimer = setTimeout(() => setNewOrder(null), 8000)
+    })
+    return () => {
+      clearTimeout(hideTimer)
+      unsubscribe()
+    }
+  }, [user.tenantId])
 
   const total = cartTotal(cart)
 
@@ -162,14 +194,34 @@ export default function SaleScreen({ user, onLogout }: Props) {
   return (
     <div className="pos">
       <header className="bar no-print">
-        <strong>OISM POS</strong>
-        <span className="muted">{user.tenantName} · {user.fullName}</span>
-        <button onClick={() => logout().then(onLogout)}>Đăng xuất</button>
+        <div className="brand">
+          <img src="/icon.svg" alt="" width={30} height={30} />
+          <span>OISM <b>POS</b></span>
+        </div>
+        <div className="shortcuts" aria-hidden="true">
+          <span><kbd>F2</kbd> Tìm</span>
+          <span><kbd>F9</kbd> Thanh toán</span>
+          <span><kbd>Esc</kbd> Hủy giỏ</span>
+        </div>
+        <span className="muted who">
+          <span className="store">{user.tenantName}</span>
+          <span className="person">{user.fullName}</span>
+        </span>
+        <button className="ghost" onClick={() => logout().then(onLogout)}>Đăng xuất</button>
       </header>
+      {newOrder && (
+        <div className="toast no-print" role="status" aria-live="polite">
+          <span className="toast-dot" />
+          Đơn mới <b>{newOrder.orderCode}</b> · {newOrder.channel} · {money(Number(newOrder.totalAmount || 0))}
+        </div>
+      )}
 
       <main className="layout no-print">
-        <section className="card">
+        <section className="card search-panel">
           <form onSubmit={submit} className="search">
+            <span className="search-icon" aria-hidden="true">
+              <svg viewBox="0 0 24 24" width="20" height="20" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round"><circle cx="11" cy="11" r="7" /><path d="m20 20-3.5-3.5" /></svg>
+            </span>
             <input
               ref={searchRef}
               value={text}
@@ -181,56 +233,86 @@ export default function SaleScreen({ user, onLogout }: Props) {
             />
             <button type="submit" className="primary" disabled={busy}>Tìm</button>
           </form>
-          {notice && <div className={`alert ${notice.kind}`} role="status">{notice.text}</div>}
-          <ul className="results">
-            {results.map((sku) => (
-              <li key={sku.id}>
-                <button onClick={() => add(sku)} disabled={sku.available <= 0}>
-                  <span><strong>{sku.productName}</strong> {attrText(sku)}<br /><small>{sku.code}</small></span>
-                  <span className="right">{money(sku.retailPrice)}<br /><small>{sku.available > 0 ? `Còn ${sku.available}` : 'Hết hàng'}</small></span>
-                </button>
-              </li>
-            ))}
-          </ul>
+          {notice && <div className={`alert ${notice.kind}`} role={notice.kind === 'error' ? 'alert' : 'status'}>{notice.text}</div>}
+          {results.length > 0 ? (
+            <ul className="results">
+              {results.map((sku) => (
+                <li key={sku.id}>
+                  <button onClick={() => add(sku)} disabled={sku.available <= 0} className="product">
+                    <span className="product-name">{sku.productName}</span>
+                    <span className="product-attr">{attrText(sku) || '—'}</span>
+                    <small className="product-code">{sku.code}</small>
+                    <span className="product-foot">
+                      <span className="price">{money(sku.retailPrice)}</span>
+                      <span className={`stock ${sku.available > 0 ? (sku.available <= 5 ? 'low' : 'ok') : 'out'}`}>
+                        {sku.available > 0 ? `Còn ${sku.available}` : 'Hết hàng'}
+                      </span>
+                    </span>
+                  </button>
+                </li>
+              ))}
+            </ul>
+          ) : (
+            <div className="scan-hint">
+              <svg viewBox="0 0 64 48" width="72" height="54" aria-hidden="true">
+                <g fill="currentColor">
+                  <rect x="4" y="6" width="3" height="36" /><rect x="10" y="6" width="1.5" height="36" /><rect x="14" y="6" width="4" height="36" />
+                  <rect x="21" y="6" width="1.5" height="36" /><rect x="25" y="6" width="3" height="36" /><rect x="31" y="6" width="1.5" height="36" />
+                  <rect x="35" y="6" width="4" height="36" /><rect x="42" y="6" width="1.5" height="36" /><rect x="46" y="6" width="3" height="36" />
+                  <rect x="52" y="6" width="1.5" height="36" /><rect x="56" y="6" width="4" height="36" />
+                </g>
+                <rect x="0" y="22" width="64" height="2.5" rx="1" fill="#ef4444" />
+              </svg>
+              <strong>Sẵn sàng bán hàng</strong>
+              <span>Quét mã vạch sản phẩm hoặc gõ tên, mã SKU rồi nhấn Enter.</span>
+            </div>
+          )}
         </section>
 
         <section className="card cart">
-          <h2>Giỏ hàng ({itemCount(cart)})</h2>
+          <div className="cart-head">
+            <h2>Giỏ hàng ({itemCount(cart)})</h2>
+            {cart.length > 0 && <span className="pill">{cart.length} mặt hàng</span>}
+          </div>
           {cart.length === 0 ? (
-            <p className="muted">Chưa có sản phẩm. Quét mã vạch để thêm.</p>
-          ) : (
-            <div className="table-wrap">
-              <table>
-              <thead>
-                <tr><th>Sản phẩm</th><th>Đơn giá</th><th>SL</th><th>Thành tiền</th><th /></tr>
-              </thead>
-              <tbody>
-                {cart.map(({ sku, quantity }) => (
-                  <tr key={sku.id}>
-                    <td><strong>{sku.productName}</strong> {attrText(sku)}<br /><small>{sku.code}</small></td>
-                    <td>{money(sku.retailPrice)}</td>
-                    <td className="qty">
-                      <button aria-label="Giảm" onClick={() => changeQuantity(sku.id, quantity - 1)}>−</button>
-                      <input
-                        type="number"
-                        min={1}
-                        value={quantity}
-                        aria-label={`Số lượng ${sku.code}`}
-                        onChange={(e) => changeQuantity(sku.id, Number(e.target.value))}
-                      />
-                      <button aria-label="Tăng" onClick={() => changeQuantity(sku.id, quantity + 1)}>+</button>
-                    </td>
-                    <td>{money(sku.retailPrice * quantity)}</td>
-                    <td><button aria-label={`Xóa ${sku.code}`} onClick={() => setCart(removeLine(cart, sku.id))}>✕</button></td>
-                  </tr>
-                ))}
-              </tbody>
-            </table>
+            <div className="cart-empty">
+              <svg viewBox="0 0 24 24" width="40" height="40" fill="none" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true">
+                <circle cx="9" cy="20" r="1.4" /><circle cx="18" cy="20" r="1.4" /><path d="M2.5 3.5h2.6l2.4 11.2a2 2 0 0 0 2 1.6h8.2a2 2 0 0 0 2-1.5L21.5 7H6" />
+              </svg>
+              <p className="muted">Chưa có sản phẩm. Quét mã vạch để thêm.</p>
             </div>
+          ) : (
+            <ul className="cart-lines">
+              {cart.map(({ sku, quantity }) => (
+                <li key={sku.id} className="cart-line">
+                  <div className="cart-info">
+                    <strong>{sku.productName}</strong>
+                    <small>{[attrText(sku), sku.code].filter(Boolean).join(' · ')}</small>
+                    <small className="unit">{money(sku.retailPrice)} / cái</small>
+                  </div>
+                  <div className="qty">
+                    <button aria-label="Giảm" onClick={() => changeQuantity(sku.id, quantity - 1)}>−</button>
+                    <input
+                      type="number"
+                      min={1}
+                      value={quantity}
+                      aria-label={`Số lượng ${sku.code}`}
+                      onChange={(e) => changeQuantity(sku.id, Number(e.target.value))}
+                    />
+                    <button aria-label="Tăng" onClick={() => changeQuantity(sku.id, quantity + 1)}>+</button>
+                  </div>
+                  <div className="line-total">{money(sku.retailPrice * quantity)}</div>
+                  <button className="remove" aria-label={`Xóa ${sku.code}`} onClick={() => setCart(removeLine(cart, sku.id))}>✕</button>
+                </li>
+              ))}
+            </ul>
           )}
-          <div className="total">
-            <span>Tổng cộng</span>
-            <strong>{money(total)}</strong>
+          <div className="summary">
+            <div className="row"><span>Số lượng</span><span>{itemCount(cart)} sản phẩm</span></div>
+            <div className="total">
+              <span>Tổng cộng</span>
+              <strong>{money(total)}</strong>
+            </div>
           </div>
           <div className="actions">
             <button onClick={clearCart} disabled={cart.length === 0 || busy}>Hủy giỏ (Esc)</button>
@@ -241,18 +323,20 @@ export default function SaleScreen({ user, onLogout }: Props) {
         </section>
       </main>
 
-            {payOpen && (
-        <div className="modal no-print" role="dialog" aria-modal="true" aria-label="Thanh toán">
-          <div className="card" style={{ width: "100%", maxWidth: 460 }}>
-            <h2>Thanh toán đơn hàng</h2>
-            <div style={{ fontSize: '1.2rem', marginBottom: 12 }}>
-              Tổng tiền thanh toán: <strong style={{ color: '#1677ff' }}>{money(total)}</strong>
+      {payOpen && (
+        <div className="modal no-print">
+          <div ref={payDialogRef} className="card pay-card" role="dialog" aria-modal="true" aria-labelledby="pay-title">
+            <h2 id="pay-title">Thanh toán đơn hàng</h2>
+            <div className="pay-total">
+              <span>Tổng tiền thanh toán</span>
+              <strong>{money(total)}</strong>
             </div>
 
-            <div className="pay-methods">
+            <div className="pay-methods" role="group" aria-label="Hình thức thanh toán">
               <button
                 type="button"
                 className={paymentMethod === 'CASH' ? 'active' : ''}
+                aria-pressed={paymentMethod === 'CASH'}
                 onClick={() => setPaymentMethod('CASH')}
               >
                 💵 Tiền mặt
@@ -260,6 +344,7 @@ export default function SaleScreen({ user, onLogout }: Props) {
               <button
                 type="button"
                 className={paymentMethod === 'QR' ? 'active' : ''}
+                aria-pressed={paymentMethod === 'QR'}
                 onClick={() => setPaymentMethod('QR')}
               >
                 📱 Chuyển khoản QR
@@ -268,14 +353,15 @@ export default function SaleScreen({ user, onLogout }: Props) {
 
             {paymentMethod === 'CASH' ? (
               <div>
-                <label style={{ display: 'block', marginBottom: 6, fontWeight: 600 }}>Tiền khách đưa (₫):</label>
+                <label className="field-label" htmlFor="cash-given">Tiền khách đưa (₫):</label>
                 <input
+                  id="cash-given"
                   ref={cashInputRef}
                   type="number"
                   step={1000}
                   value={cashGiven}
                   onChange={(e) => setCashGiven(Number(e.target.value) || 0)}
-                  style={{ fontSize: '1.2rem', fontWeight: 'bold' }}
+                  className="cash-input"
                 />
                 <div className="quick-cash">
                   <button type="button" onClick={() => setCashGiven(total)}>Đúng tiền</button>
@@ -285,19 +371,16 @@ export default function SaleScreen({ user, onLogout }: Props) {
                   <button type="button" onClick={() => setCashGiven((c) => c + 50000)}>+50k</button>
                   <button type="button" onClick={() => setCashGiven((c) => c + 100000)}>+100k</button>
                 </div>
-                <div style={{ marginTop: 12, padding: 8, background: '#fafafa', borderRadius: 6 }}>
-                  Tiền thối lại:{' '}
-                  <strong style={{ color: cashGiven >= total ? '#389e0d' : '#cf1322', fontSize: '1.1rem' }}>
+                <div className={`change ${cashGiven >= total ? 'ok' : 'short'}`} aria-live="polite">
+                  <span>Tiền thối lại:</span>
+                  <strong>
                     {cashGiven >= total ? money(changeDue) : 'Khách đưa thiếu'}
                   </strong>
                 </div>
               </div>
             ) : (
               <div className="qr-box">
-                <img
-                  src={`https://api.qrserver.com/v1/create-qr-code/?size=160x160&data=OISM_POS_${user.branchId}_${total}`}
-                  alt="Mã QR thanh toán"
-                />
+                <QrCode value={`OISM_POS_${user.branchId}_${total}`} />
                 <p style={{ margin: '8px 0 0', fontWeight: 600 }}>Quét mã QR để chuyển khoản</p>
                 <small className="muted">Thu ngân xác nhận tiền đã vào tài khoản trước khi hoàn tất</small>
               </div>
@@ -320,8 +403,8 @@ export default function SaleScreen({ user, onLogout }: Props) {
 
       {/* Modal hóa đơn */}
       {receipt && (
-        <div className="modal" role="dialog" aria-modal="true" aria-label="Hóa đơn thanh toán">
-          <div className="card" style={{ width: 380 }}>
+        <div className="modal">
+          <div ref={receiptDialogRef} className="card receipt-card" role="dialog" aria-modal="true" aria-label="Hóa đơn thanh toán">
             <div className="receipt-paper">
               <h3>{user.tenantName}</h3>
               <div style={{ textAlign: 'center', fontSize: 11 }}>Chi nhánh: {receipt.branchName}</div>
@@ -356,7 +439,7 @@ export default function SaleScreen({ user, onLogout }: Props) {
             </div>
 
             <div className="actions no-print" style={{ marginTop: 16, justifyContent: 'center' }}>
-              <button type="button" className="primary" onClick={() => window.print()}>🖨️ In hóa đơn</button>
+              <button type="button" className="primary" onClick={() => window.print()}>In hóa đơn</button>
               <button type="button" onClick={() => setReceipt(null)}>Đơn mới (Esc)</button>
             </div>
           </div>

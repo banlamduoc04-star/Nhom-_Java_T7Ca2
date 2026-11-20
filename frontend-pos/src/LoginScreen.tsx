@@ -32,9 +32,15 @@ export default function LoginScreen({ onLogin }: Props) {
   }
 
   return (
-    <div className="center">
+    <div className="center login-bg">
       <form className="card login" onSubmit={submit}>
-        <h1>OISM POS</h1>
+        <div className="login-brand">
+          <img src="/icon.svg" alt="" width={48} height={48} />
+          <div>
+            <h1>OISM POS</h1>
+            <p className="muted">Bán hàng tại quầy · Thu ngân &amp; Chủ cửa hàng</p>
+          </div>
+        </div>
         {USE_MOCK && <p className="hint">Đang chạy bằng dữ liệu giả (VITE_USE_MOCK). Bấm Đăng nhập để vào.</p>}
         {error && <div className="alert error" role="alert">{error}</div>}
         <label>

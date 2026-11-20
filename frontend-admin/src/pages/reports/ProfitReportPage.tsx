@@ -7,6 +7,8 @@ import type { ColumnsType } from 'antd/es/table'
 import dayjs from 'dayjs'
 import { branchApi, reportApi, skuApi } from '../../api/services'
 import type { Branch, OrderChannel, ProfitBySku, ProfitReportView, SkuSearchItem } from '../../api/types'
+import { errorText } from '../../api/client'
+import { palette } from '../../theme'
 
 const money = (v: number | null | undefined) => (v != null ? `${Math.round(v).toLocaleString('vi-VN')} ₫` : '0 ₫')
 
@@ -44,8 +46,8 @@ export default function ProfitReportPage() {
         skuId: skuFilter,
       })
       setData(res)
-    } catch (err: any) {
-      message.error(err.response?.data?.message || 'Không thể tải báo cáo lợi nhuận')
+    } catch (err) {
+      message.error(errorText(err))
     } finally {
       setLoading(false)
     }
@@ -89,7 +91,7 @@ export default function ProfitReportPage() {
       link.click()
       document.body.removeChild(link)
       message.success('Đã xuất file CSV thành công')
-    } catch (err: any) {
+    } catch {
       message.error('Xuất CSV thất bại')
     }
   }
@@ -127,7 +129,7 @@ export default function ProfitReportPage() {
       key: 'grossProfit',
       align: 'right',
       render: (v) => (
-        <strong style={{ color: v >= 0 ? '#3f8600' : '#cf1322' }}>
+        <strong style={{ color: v >= 0 ? palette.successText : palette.dangerText }}>
           {money(v)}
         </strong>
       ),
@@ -138,7 +140,7 @@ export default function ProfitReportPage() {
       key: 'grossMargin',
       align: 'right',
       render: (m) => (
-        <span style={{ color: m >= 0 ? '#3f8600' : '#cf1322' }}>
+        <span style={{ color: m >= 0 ? palette.successText : palette.dangerText }}>
           {(m * 100).toFixed(1)}%
         </span>
       ),
@@ -151,7 +153,7 @@ export default function ProfitReportPage() {
     <div>
       <Row justify="space-between" align="middle" style={{ marginBottom: 16 }}>
         <Col>
-          <Typography.Title level={3} style={{ margin: 0 }}>Báo cáo Lợi nhuận gộp (Profit & Loss)</Typography.Title>
+          <Typography.Title level={2} style={{ margin: 0 }}>Báo cáo Lợi nhuận gộp (Profit & Loss)</Typography.Title>
         </Col>
         <Col>
           <Space>
@@ -170,7 +172,7 @@ export default function ProfitReportPage() {
               value={summary?.totalRevenue || 0}
               precision={0}
               suffix="₫"
-              valueStyle={{ color: '#1890ff' }}
+              valueStyle={{ color: palette.infoText }}
             />
           </Card>
         </Col>
@@ -181,7 +183,7 @@ export default function ProfitReportPage() {
               value={summary?.totalCogs || 0}
               precision={0}
               suffix="₫"
-              valueStyle={{ color: '#fa8c16' }}
+              valueStyle={{ color: palette.warningText }}
             />
           </Card>
         </Col>
@@ -192,7 +194,7 @@ export default function ProfitReportPage() {
               value={summary?.grossProfit || 0}
               precision={0}
               suffix="₫"
-              valueStyle={{ color: (summary?.grossProfit || 0) >= 0 ? '#3f8600' : '#cf1322' }}
+              valueStyle={{ color: (summary?.grossProfit || 0) >= 0 ? palette.successText : palette.dangerText }}
               prefix={(summary?.grossProfit || 0) >= 0 ? <ArrowUpOutlined /> : <ArrowDownOutlined />}
             />
           </Card>
@@ -204,7 +206,7 @@ export default function ProfitReportPage() {
               value={(summary?.grossMargin || 0) * 100}
               precision={1}
               suffix="%"
-              valueStyle={{ color: (summary?.grossMargin || 0) >= 0 ? '#3f8600' : '#cf1322' }}
+              valueStyle={{ color: (summary?.grossMargin || 0) >= 0 ? palette.successText : palette.dangerText }}
             />
           </Card>
         </Col>
@@ -215,7 +217,7 @@ export default function ProfitReportPage() {
         <Space wrap>
           <DatePicker.RangePicker
             value={dateRange}
-            onChange={(dates) => setDateRange(dates as any)}
+            onChange={(dates) => setDateRange(dates)}
             placeholder={['Từ ngày', 'Đến ngày']}
           />
           <Select
@@ -236,7 +238,6 @@ export default function ProfitReportPage() {
               { value: 'MANUAL', label: 'Thủ công' },
               { value: 'POS', label: 'Tại quầy (POS)' },
               { value: 'SHOPEE', label: 'Shopee' },
-              { value: 'LAZADA', label: 'Lazada' },
               { value: 'TIKTOK', label: 'TikTok Shop' },
             ]}
           />

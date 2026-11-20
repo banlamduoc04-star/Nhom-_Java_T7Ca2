@@ -3,6 +3,7 @@ import { Button, Form, Input, Modal, Select, Space, Table, Tag, Typography, mess
 import { LockOutlined, PlusOutlined, UnlockOutlined } from '@ant-design/icons'
 import { branchApi, userAdminApi } from '../../api/services'
 import type { Branch, Role, UserView } from '../../api/types'
+import { errorText } from '../../api/client'
 
 export default function UsersPage() {
   const [users, setUsers] = useState<UserView[]>([])
@@ -42,10 +43,8 @@ export default function UsersPage() {
       setModalOpen(false)
       form.resetFields()
       loadData()
-    } catch (e: any) {
-      if (e?.response?.data?.message) {
-        message.error(e.response.data.message)
-      }
+    } catch (e) {
+      message.error(errorText(e))
     }
   }
 
@@ -75,7 +74,7 @@ export default function UsersPage() {
   return (
     <div>
       <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 16 }}>
-        <Typography.Title level={3} style={{ margin: 0 }}>Quản lý nhân viên & tài khoản</Typography.Title>
+        <Typography.Title level={2} style={{ margin: 0 }}>Quản lý nhân viên & tài khoản</Typography.Title>
         <Button type="primary" icon={<PlusOutlined />} onClick={() => setModalOpen(true)}>Thêm nhân viên</Button>
       </div>
 

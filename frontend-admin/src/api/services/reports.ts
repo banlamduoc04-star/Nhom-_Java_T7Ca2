@@ -10,11 +10,11 @@ export const reportApi = {
 
 export const stockReportApi = {
   valuation: (branchId?: string) =>
-    data(api.get<ValuationSummary>('/reports/stock/valuation', { params: { branchId } })),
+    data(api.get<ValuationSummary>('/reports/inventory-value', { params: { branchId } })),
   topSelling: (days = 30, limit = 10) =>
-    data(api.get<TopSellingItem[]>('/reports/stock/top-selling', { params: { days, limit } })),
+    data(api.get<TopSellingItem[]>('/reports/top-selling', { params: { days, limit } })),
   slowMoving: (days = 30) =>
-    data(api.get<SlowMovingItem[]>('/reports/stock/slow-moving', { params: { days } })),
+    data(api.get<SlowMovingItem[]>('/reports/slow-moving', { params: { days } })),
   dailyReports: () => data(api.get<DailyReport[]>('/reports/daily')),
-  triggerDaily: (date?: string) => data(api.post<DailyReport>('/reports/daily/run', null, { params: { date } })),
+  triggerDaily: (date?: string) => data(api.post<DailyReport[]>('/reports/daily/run', null, { params: { date } })),
 }

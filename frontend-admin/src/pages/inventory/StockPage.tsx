@@ -5,6 +5,7 @@ import { branchApi, stockApi } from '../../api/services'
 import { errorText } from '../../api/client'
 import SkuSelect from '../../components/SkuSelect'
 import type { Branch, LedgerRow, StockRow } from '../../api/types'
+import { palette } from '../../theme'
 
 const REASON_LABEL: Record<string, string> = {
   PURCHASE: 'Nhập kho', SALE: 'Bán', RETURN: 'Trả', ADJUST: 'Kiểm kê', TRANSFER_OUT: 'Chuyển đi', TRANSFER_IN: 'Chuyển đến',
@@ -92,7 +93,7 @@ export default function StockPage() {
                   { title: 'Lý do', dataIndex: 'reason', render: (r: string) => REASON_LABEL[r] ?? r },
                   {
                     title: 'Số lượng', dataIndex: 'quantity',
-                    render: (q: number, r) => <strong style={{ color: r.direction === 'IN' ? '#389e0d' : '#cf1322' }}>{r.direction === 'IN' ? '+' : '−'}{q}</strong>,
+                    render: (q: number, r) => <strong style={{ color: r.direction === 'IN' ? palette.successText : palette.dangerText }}>{r.direction === 'IN' ? '+' : '−'}{q}</strong>,
                   },
                   { title: 'Tồn sau', dataIndex: 'balanceAfter' },
                   { title: 'Đơn giá', dataIndex: 'unitCost', render: (v: number | null) => (v == null ? '' : v.toLocaleString('vi-VN')) },

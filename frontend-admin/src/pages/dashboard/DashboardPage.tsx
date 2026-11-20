@@ -1,11 +1,26 @@
 import { useEffect, useState } from 'react'
-import { Card, Col, Row, Statistic, Table, Tag, Typography, Button, Space, message, Badge, Popconfirm, Empty } from 'antd'
-import { ShoppingCartOutlined, DollarOutlined, AlertOutlined, TrophyOutlined, SyncOutlined, QuestionCircleOutlined } from '@ant-design/icons'
+import { Card, Col, Row, Table, Tag, Button, Space, message, Badge, Popconfirm, Empty, Progress } from 'antd'
+import { ShoppingCartOutlined, DollarOutlined, AlertOutlined, TrophyOutlined, SyncOutlined, QuestionCircleOutlined, RiseOutlined } from '@ant-design/icons'
+import type { ReactNode } from 'react'
 import { useNavigate } from 'react-router-dom'
 import { alertApi, orderApi, reportApi, stockReportApi } from '../../api/services'
 import type { StockAlert, TopSellingItem } from '../../api/types'
 import { handleApiError } from '../../api/errorHandler'
+import { palette } from '../../theme'
 const money = (v: number) => `${v.toLocaleString('vi-VN')} ₫`
+
+function Kpi({ icon, color, bg, label, value, sub }: { icon: ReactNode; color: string; bg: string; label: string; value: ReactNode; sub?: ReactNode }) {
+  return (
+    <Card className="kpi-card" style={{ height: '100%' }}>
+      <span className="kpi-icon" style={{ color, background: bg }}>{icon}</span>
+      <div style={{ minWidth: 0 }}>
+        <div className="kpi-label">{label}</div>
+        <div className="kpi-value">{value}</div>
+        {sub && <div className="kpi-sub">{sub}</div>}
+      </div>
+    </Card>
+  )
+}
 
 export default function DashboardPage() {
   const navigate = useNavigate()
@@ -54,7 +69,7 @@ export default function DashboardPage() {
 
   const resolveAlert = async (id: string) => {
     try {
-      await alertApi.resolve(id)
+      await alertApi.markRead(id)
       message.success('Đã đóng cảnh báo')
       loadData()
     } catch (err) {
@@ -62,71 +77,81 @@ export default function DashboardPage() {
     }
   }
 
+  const margin = revenue.totalRevenue > 0 ? (revenue.grossProfit / revenue.totalRevenue) * 100 : 0
+  const maxSold = Math.max(1, ...topSelling.map((t) => t.quantitySold))
+  const statuses = [
+    { label: 'Đang giữ hàng', n: orderCounts.reserved, color: palette.warningText },
+    { label: 'Đã duyệt', n: orderCounts.confirmed, color: palette.infoText },
+    { label: 'Hoàn tất', n: orderCounts.completed, color: palette.successText },
+    { label: 'Đã hủy', n: orderCounts.cancelled, color: palette.muted },
+  ]
+
   return (
     <div>
-      <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 16 }}>
-        <Typography.Title level={3} style={{ margin: 0 }}>Tổng quan Dashboard</Typography.Title>
+      <div className="page-head">
+        <div>
+          <h2>Tổng quan Dashboard</h2>
+          <p>Doanh thu, đơn hàng và tình trạng tồn kho của cửa hàng</p>
+        </div>
         <Button icon={<SyncOutlined />} onClick={loadData} loading={loading}>Làm mới</Button>
       </div>
 
       <Row gutter={[16, 16]}>
-        <Col xs={24} sm={12} lg={6}>
-          <Card bordered={false} style={{ background: '#f6ffed', border: '1px solid #b7eb8f' }}>
-            <Statistic
-              title="Tổng doanh thu"
-              value={money(revenue.totalRevenue)}
-              prefix={<DollarOutlined style={{ color: '#52c41a' }} />}
-            />
-          </Card>
+        <Col xs={24} sm={12} xl={6}>
+          <Kpi icon={<DollarOutlined />} color="#4f46e5" bg="#eef2ff" label="Tổng doanh thu"
+            value={money(revenue.totalRevenue)} sub="Đơn đã duyệt và hoàn tất" />
         </Col>
-        <Col xs={24} sm={12} lg={6}>
-          <Card bordered={false} style={{ background: '#e6f7ff', border: '1px solid #91d5ff' }}>
-            <Statistic
-              title="Lợi nhuận gộp"
-              value={money(revenue.grossProfit)}
-              prefix={<TrophyOutlined style={{ color: '#1890ff' }} />}
-            />
-          </Card>
+        <Col xs={24} sm={12} xl={6}>
+          <Kpi icon={<RiseOutlined />} color="#16a34a" bg="#f0fdf4" label="Lợi nhuận gộp"
+            value={money(revenue.grossProfit)} sub={`Biên lợi nhuận ${margin.toFixed(1)}%`} />
         </Col>
-        <Col xs={24} sm={12} lg={6}>
-          <Card bordered={false} style={{ background: '#fffbe6', border: '1px solid #ffe58f' }}>
-            <Statistic
-              title="Đơn đang xử lý (Giữ / Đã duyệt)"
-              value={`${orderCounts.reserved} / ${orderCounts.confirmed}`}
-              prefix={<ShoppingCartOutlined style={{ color: '#faad14' }} />}
-            />
-          </Card>
+        <Col xs={24} sm={12} xl={6}>
+          <Kpi icon={<ShoppingCartOutlined />} color="#d97706" bg="#fffbeb" label="Đơn đang xử lý (Giữ / Đã duyệt)"
+            value={`${orderCounts.reserved} / ${orderCounts.confirmed}`} sub={`Trong ${orderCounts.total} đơn gần nhất`} />
         </Col>
-        <Col xs={24} sm={12} lg={6}>
-          <Card bordered={false} style={{ background: '#fff2e8', border: '1px solid #ffbb96' }}>
-            <Statistic
-              title="Cảnh báo tồn kho thấp"
-              value={alerts.length}
-              styles={{ content: { color: alerts.length > 0 ? '#cf1322' : '#3f8600' } }}
-              prefix={<AlertOutlined style={{ color: '#f5222d' }} />}
-            />
-          </Card>
+        <Col xs={24} sm={12} xl={6}>
+          <Kpi icon={<AlertOutlined />} color={alerts.length > 0 ? palette.dangerText : palette.successText} bg={alerts.length > 0 ? '#fef2f2' : '#f0fdf4'}
+            label="Cảnh báo tồn kho thấp" value={alerts.length}
+            sub={alerts.length > 0 ? 'Cần nhập thêm hàng' : 'Tồn kho ổn định'} />
         </Col>
       </Row>
+
+      <Card title="Trạng thái đơn hàng" style={{ marginTop: 16 }}
+        extra={<Button type="link" onClick={() => navigate('/orders')}>Xem đơn hàng</Button>}>
+        <div className="status-strip">
+          {statuses.map((st) => (
+            <div className="status-cell" key={st.label}>
+              <div className="n" style={{ color: st.color }}>{st.n}</div>
+              <div className="l">{st.label}</div>
+              <Progress
+                percent={orderCounts.total ? Math.round((st.n / orderCounts.total) * 100) : 0}
+                showInfo={false} size="small" strokeColor={st.color} style={{ margin: '6px 0 0' }}
+              />
+            </div>
+          ))}
+        </div>
+      </Card>
 
       <Row gutter={[16, 16]} style={{ marginTop: 16 }}>
         <Col xs={24} lg={14}>
           <Card
             title={
               <Space>
-                <AlertOutlined style={{ color: '#f5222d' }} />
-                <span>Cảnh báo tồn kho thấp (dưới ngưỡng đặt lại)</span>
+                <AlertOutlined style={{ color: palette.dangerText }} />
+                <span>Cảnh báo tồn kho thấp</span>
                 {alerts.length > 0 && <Badge count={alerts.length} />}
               </Space>
             }
             extra={<Button type="link" onClick={() => navigate('/stock')}>Xem tồn kho</Button>}
+            style={{ height: '100%' }}
           >
             <Table
               dataSource={alerts}
               rowKey="id"
               size="small"
               loading={loading}
-              pagination={{ pageSize: 5 }}
+              pagination={{ pageSize: 5, hideOnSinglePage: true }}
+              scroll={{ x: 520 }}
               locale={{
                 emptyText: (
                   <Empty
@@ -143,8 +168,8 @@ export default function DashboardPage() {
                   title: 'Khả dụng / Ngưỡng',
                   key: 'qty',
                   render: (_, r) => (
-                    <span style={{ color: '#cf1322', fontWeight: 600 }}>
-                      {r.availableAtAlert} / {r.threshold}
+                    <span style={{ color: palette.dangerText, fontWeight: 600 }}>
+                      {r.available} / {r.threshold}
                     </span>
                   ),
                 },
@@ -174,33 +199,37 @@ export default function DashboardPage() {
           <Card
             title={
               <Space>
-                <TrophyOutlined style={{ color: '#faad14' }} />
-                <span>Top 5 bán chạy (30 ngày gần nhất)</span>
+                <TrophyOutlined style={{ color: palette.warningText }} />
+                <span>Top 5 bán chạy (30 ngày)</span>
               </Space>
             }
             extra={<Button type="link" onClick={() => navigate('/stock-reports')}>Xem chi tiết</Button>}
+            style={{ height: '100%' }}
+            loading={loading && topSelling.length === 0}
           >
-            <Table
-              dataSource={topSelling}
-              rowKey="skuId"
-              size="small"
-              loading={loading}
-              pagination={false}
-              locale={{
-                emptyText: (
-                  <Empty
-                    image={Empty.PRESENTED_IMAGE_SIMPLE}
-                    description="Chưa có dữ liệu bán chạy trong 30 ngày qua"
-                  />
-                ),
-              }}
-              columns={[
-                { title: 'Sản phẩm', dataIndex: 'productName', key: 'productName' },
-                { title: 'Mã SKU', dataIndex: 'skuCode', key: 'skuCode' },
-                { title: 'Đã bán', dataIndex: 'quantitySold', key: 'quantitySold', align: 'right' },
-                { title: 'Doanh thu', dataIndex: 'totalRevenue', key: 'totalRevenue', render: money, align: 'right' },
-              ]}
-            />
+            {topSelling.length === 0 ? (
+              <Empty image={Empty.PRESENTED_IMAGE_SIMPLE} description="Chưa có dữ liệu bán chạy trong 30 ngày qua" />
+            ) : (
+              <div style={{ display: 'grid', gap: 14 }}>
+                {topSelling.map((t, i) => (
+                  <div key={t.skuId}>
+                    <div style={{ display: 'flex', justifyContent: 'space-between', gap: 8 }}>
+                      <span style={{ minWidth: 0, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
+                        <b style={{ color: palette.muted, marginRight: 8 }}>#{i + 1}</b>
+                        <b>{t.productName}</b> <span style={{ color: palette.muted, fontSize: 12 }}>{t.skuCode}</span>
+                      </span>
+                      <span style={{ whiteSpace: 'nowrap', fontWeight: 600 }}>{money(t.totalRevenue)}</span>
+                    </div>
+                    <Progress
+                      percent={Math.round((t.quantitySold / maxSold) * 100)}
+                      format={() => `${t.quantitySold} đã bán`}
+                      strokeColor="#4f46e5"
+                      size="small"
+                    />
+                  </div>
+                ))}
+              </div>
+            )}
           </Card>
         </Col>
       </Row>

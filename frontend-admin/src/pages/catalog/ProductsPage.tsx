@@ -1,6 +1,6 @@
 import { useCallback, useEffect, useState } from 'react'
 import { App, Button, Card, Divider, Form, Input, InputNumber, Modal, Select, Space, Switch, Table, Tag } from 'antd'
-import { MinusCircleOutlined, PlusOutlined } from '@ant-design/icons'
+import { MinusCircleOutlined, PlusOutlined, SearchOutlined } from '@ant-design/icons'
 import { Link } from 'react-router-dom'
 import { brandApi, categoryApi, productApi, type SkuInput } from '../../api/services'
 import { errorText } from '../../api/client'
@@ -100,6 +100,8 @@ export default function ProductsPage() {
     <Card title="Sản phẩm" extra={canEdit && <Button type="primary" icon={<PlusOutlined />} onClick={openCreate}>Thêm sản phẩm</Button>}>
       <Space wrap style={{ marginBottom: 16 }}>
         <Input.Search allowClear placeholder="Tên, mã SKU hoặc mã vạch" style={{ width: 280 }}
+          aria-label="Tìm sản phẩm theo tên, mã SKU hoặc mã vạch"
+          enterButton={<Button aria-label="Tìm sản phẩm" icon={<SearchOutlined />} />}
           onSearch={(keyword) => setQuery((q) => ({ ...q, keyword: keyword || undefined, page: 0 }))} />
         <Select allowClear placeholder="Danh mục" style={{ width: 180 }} options={categories.map((c) => ({ value: c.id, label: c.name }))}
           onChange={(categoryId) => setQuery((q) => ({ ...q, categoryId, page: 0 }))} />

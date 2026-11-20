@@ -27,6 +27,19 @@ export const tokenStore = {
   },
 }
 
+/**
+ * Dia chi STOMP cua backend (FR-SIM-02): cung host voi API, duong dan /ws.
+ * Vi du http://localhost:8080/api/v1 -> ws://localhost:8080/ws.
+ */
+export function websocketUrl(apiUrl: string = API_URL): string {
+  const url = new URL(apiUrl, window.location.origin)
+  url.protocol = url.protocol === 'https:' ? 'wss:' : 'ws:'
+  url.pathname = '/ws'
+  url.search = ''
+  url.hash = ''
+  return url.toString()
+}
+
 export const api = axios.create({ baseURL: API_URL })
 
 export const data = <T>(p: Promise<{ data: T }>): Promise<T> => p.then((r) => r.data)

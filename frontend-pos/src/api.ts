@@ -7,6 +7,7 @@ export const USE_MOCK: boolean = import.meta.env.VITE_USE_MOCK === 'true'
 
 export interface Me {
   userId: string
+  tenantId: string
   tenantName: string
   fullName: string
   role: 'OWNER' | 'STAFF' | 'CASHIER'
@@ -106,7 +107,7 @@ const toInfo = (s: SkuSearchItem): SkuInfo => ({
 
 export async function login(identifier: string, password: string): Promise<Me> {
   if (USE_MOCK) {
-    return { userId: 'mock', tenantName: 'Cửa hàng demo (dữ liệu giả)', fullName: 'Thu ngân demo', role: 'CASHIER', branchId: null }
+    return { userId: 'mock', tenantId: 'mock', tenantName: 'Cửa hàng demo (dữ liệu giả)', fullName: 'Thu ngân demo', role: 'CASHIER', branchId: null }
   }
   const { data } = await http.post<Tokens>('/auth/login', { identifier, password })
   tokenStore.set(data)

@@ -6,6 +6,8 @@ import { CheckOutlined, CloseOutlined, EyeOutlined, PlusOutlined, SendOutlined, 
 import type { ColumnsType } from 'antd/es/table'
 import { branchApi, skuApi, transferApi } from '../../api/services'
 import type { Branch, SkuSearchItem, TransferStatus, TransferView } from '../../api/types'
+import { errorText } from '../../api/client'
+import { palette } from '../../theme'
 
 const STATUS_COLOR: Record<TransferStatus, string> = {
   DRAFT: 'default',
@@ -62,8 +64,8 @@ export default function TransfersPage() {
       })
       setTransfers(data.content)
       setTotal(data.totalElements)
-    } catch (err: any) {
-      message.error(err.response?.data?.message || 'Không thể tải danh sách chuyển kho')
+    } catch (err) {
+      message.error(errorText(err))
     } finally {
       setLoading(false)
     }
@@ -85,8 +87,8 @@ export default function TransfersPage() {
       message.success('Đã xuất kho chuyển hàng thành công')
       if (selectedTransfer?.id === id) setSelectedTransfer(updated)
       loadTransfers()
-    } catch (err: any) {
-      message.error(err.response?.data?.message || 'Xuất chuyển kho thất bại')
+    } catch (err) {
+      message.error(errorText(err))
     }
   }
 
@@ -96,8 +98,8 @@ export default function TransfersPage() {
       message.success('Đã nhập kho đích thành công')
       if (selectedTransfer?.id === id) setSelectedTransfer(updated)
       loadTransfers()
-    } catch (err: any) {
-      message.error(err.response?.data?.message || 'Nhận hàng thất bại')
+    } catch (err) {
+      message.error(errorText(err))
     }
   }
 
@@ -114,8 +116,8 @@ export default function TransfersPage() {
       setTransferToCancel(null)
       if (selectedTransfer?.id === updated.id) setSelectedTransfer(updated)
       loadTransfers()
-    } catch (err: any) {
-      message.error(err.response?.data?.message || 'Hủy thất bại')
+    } catch (err) {
+      message.error(errorText(err))
     }
   }
 
@@ -129,7 +131,11 @@ export default function TransfersPage() {
     }
   }
 
-  const handleCreate = async (values: any) => {
+  const handleCreate = async (values: {
+    fromBranchId: string
+    toBranchId: string
+    items: { skuId: string; quantity: number }[]
+  }) => {
     if (values.fromBranchId === values.toBranchId) {
       message.error('Chi nhánh nguồn và chi nhánh đích phải khác nhau')
       return
@@ -138,15 +144,14 @@ export default function TransfersPage() {
       await transferApi.create({
         fromBranchId: values.fromBranchId,
         toBranchId: values.toBranchId,
-        note: values.note,
-        items: values.items.map((i: any) => ({ skuId: i.skuId, quantity: i.quantity })),
+        items: values.items.map((i) => ({ skuId: i.skuId, quantity: i.quantity })),
       })
       message.success('Đã tạo phiếu chuyển kho thành công')
       setCreateOpen(false)
       createForm.resetFields()
       loadTransfers()
-    } catch (err: any) {
-      message.error(err.response?.data?.message || 'Tạo phiếu chuyển kho thất bại')
+    } catch (err) {
+      message.error(errorText(err))
     }
   }
 
@@ -180,12 +185,6 @@ export default function TransfersPage() {
       render: (st: TransferStatus) => <Tag color={STATUS_COLOR[st]}>{STATUS_LABEL[st]}</Tag>,
     },
     {
-      title: 'Ghi chú',
-      dataIndex: 'note',
-      key: 'note',
-      render: (n) => n || '—',
-    },
-    {
       title: 'Ngày tạo',
       dataIndex: 'createdAt',
       key: 'createdAt',
@@ -203,7 +202,7 @@ export default function TransfersPage() {
             </Button>
           )}
           {r.status === 'DISPATCHED' && (
-            <Button size="small" type="primary" icon={<CheckOutlined />} style={{ background: '#52c41a', borderColor: '#52c41a' }} onClick={() => handleReceive(r.id)}>
+            <Button size="small" type="primary" icon={<CheckOutlined />} style={{ background: palette.successText, borderColor: palette.successText }} onClick={() => handleReceive(r.id)}>
               Nhận hàng
             </Button>
           )}
@@ -221,7 +220,7 @@ export default function TransfersPage() {
     <div>
       <Row justify="space-between" align="middle" style={{ marginBottom: 16 }}>
         <Col>
-          <Typography.Title level={3} style={{ margin: 0 }}>Chuyển kho liên chi nhánh</Typography.Title>
+          <Typography.Title level={2} style={{ margin: 0 }}>Chuyển kho liên chi nhánh</Typography.Title>
         </Col>
         <Col>
           <Space>
@@ -276,7 +275,7 @@ export default function TransfersPage() {
             </Button>
           ),
           selectedTransfer?.status === 'DISPATCHED' && (
-            <Button key="receive" type="primary" style={{ background: '#52c41a' }} icon={<CheckOutlined />} onClick={() => handleReceive(selectedTransfer.id)}>
+            <Button key="receive" type="primary" style={{ background: palette.successText }} icon={<CheckOutlined />} onClick={() => handleReceive(selectedTransfer.id)}>
               Xác nhận nhận hàng
             </Button>
           ),
@@ -294,14 +293,7 @@ export default function TransfersPage() {
               <Col span={12}><p><strong>Kho nguồn (xuất):</strong> {branchName(selectedTransfer.fromBranchId)}</p></Col>
               <Col span={12}><p><strong>Kho đích (nhập):</strong> {branchName(selectedTransfer.toBranchId)}</p></Col>
               <Col span={12}><p><strong>Trạng thái:</strong> <Tag color={STATUS_COLOR[selectedTransfer.status]}>{STATUS_LABEL[selectedTransfer.status]}</Tag></p></Col>
-              <Col span={12}><p><strong>Ghi chú:</strong> {selectedTransfer.note || '—'}</p></Col>
               <Col span={12}><p><strong>Thời gian tạo:</strong> {new Date(selectedTransfer.createdAt).toLocaleString('vi-VN')}</p></Col>
-              {selectedTransfer.dispatchedAt && (
-                <Col span={12}><p><strong>Thời gian xuất:</strong> {new Date(selectedTransfer.dispatchedAt).toLocaleString('vi-VN')}</p></Col>
-              )}
-              {selectedTransfer.receivedAt && (
-                <Col span={12}><p><strong>Thời gian nhận:</strong> {new Date(selectedTransfer.receivedAt).toLocaleString('vi-VN')}</p></Col>
-              )}
             </Row>
 
             <Typography.Title level={5} style={{ marginTop: 16 }}>Danh sách hàng chuyển</Typography.Title>
@@ -358,10 +350,6 @@ export default function TransfersPage() {
               </Form.Item>
             </Col>
           </Row>
-
-          <Form.Item name="note" label="Ghi chú">
-            <Input placeholder="Ví dụ: Chuyển hàng bổ sung cho chi nhánh..." />
-          </Form.Item>
 
           <Typography.Text strong>Mặt hàng cần chuyển</Typography.Text>
           <Form.List name="items" initialValue={[{ skuId: undefined, quantity: 1 }]}>

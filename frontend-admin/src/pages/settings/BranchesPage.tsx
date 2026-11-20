@@ -1,8 +1,9 @@
 import { useEffect, useState } from 'react'
 import { Button, Form, Input, Modal, Select, Space, Table, Tag, Typography, message } from 'antd'
-import { PlusOutlined } from '@ant-design/icons'
+import { PlusOutlined, SearchOutlined } from '@ant-design/icons'
 import { branchAdminApi } from '../../api/services'
 import type { Branch } from '../../api/types'
+import { errorText } from '../../api/client'
 
 export default function BranchesPage() {
   const [branches, setBranches] = useState<Branch[]>([])
@@ -42,10 +43,8 @@ export default function BranchesPage() {
       setModalOpen(false)
       form.resetFields()
       loadData()
-    } catch (e: any) {
-      if (e?.response?.data?.message) {
-        message.error(e.response.data.message)
-      }
+    } catch (e) {
+      message.error(errorText(e))
     }
   }
 
@@ -54,8 +53,8 @@ export default function BranchesPage() {
       await branchAdminApi.setStatus(branch.id, !branch.active)
       message.success(branch.active ? 'Đã ẩn chi nhánh' : 'Đã hiện chi nhánh')
       loadData()
-    } catch (e: any) {
-      message.error(e?.response?.data?.message || 'Không thể thay đổi trạng thái chi nhánh (có thể còn tồn kho hoặc đơn hàng)')
+    } catch (e) {
+      message.error(errorText(e))
     }
   }
 
@@ -68,7 +67,7 @@ export default function BranchesPage() {
   return (
     <div>
       <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 16 }}>
-        <Typography.Title level={3} style={{ margin: 0 }}>Quản lý chi nhánh & kho hàng</Typography.Title>
+        <Typography.Title level={2} style={{ margin: 0 }}>Quản lý chi nhánh & kho hàng</Typography.Title>
         <Button
           type="primary"
           icon={<PlusOutlined />}
@@ -86,6 +85,8 @@ export default function BranchesPage() {
         <Input.Search
           allowClear
           placeholder="Tìm theo tên chi nhánh"
+          aria-label="Tìm theo tên chi nhánh"
+          enterButton={<Button aria-label="Tìm chi nhánh" icon={<SearchOutlined />} />}
           style={{ width: 260 }}
           onChange={(e) => setKeyword(e.target.value)}
         />

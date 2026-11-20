@@ -1,5 +1,6 @@
 import { App as AntApp, ConfigProvider } from 'antd'
 import viVN from 'antd/locale/vi_VN'
+import { theme } from './theme'
 import { BrowserRouter, Navigate, Route, Routes } from 'react-router-dom'
 import { AuthProvider } from './auth/AuthContext'
 import { RequireAuth, RequireRole } from './auth/guards'
@@ -26,7 +27,7 @@ import UsersPage from './pages/settings/UsersPage'
 
 export default function App() {
   return (
-    <ConfigProvider locale={viVN}>
+    <ConfigProvider locale={viVN} theme={theme}>
       <AntApp>
         <BrowserRouter>
           <AuthProvider>
@@ -46,9 +47,9 @@ export default function App() {
                     <Route path="/transfers" element={<TransfersPage />} />
                     <Route path="/stocktakes" element={<StocktakesPage />} />
                     <Route path="/stock" element={<StockPage />} />
+                    <Route path="/stock-reports" element={<StockReportsPage />} />
                   </Route>
                   <Route element={<RequireRole roles={['OWNER']} />}>
-                    <Route path="/stock-reports" element={<StockReportsPage />} />
                     <Route path="/profit-report" element={<ProfitReportPage />} />
                     <Route path="/branches" element={<BranchesPage />} />
                     <Route path="/users" element={<UsersPage />} />
