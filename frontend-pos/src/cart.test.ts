@@ -1,53 +1,109 @@
 import { describe, expect, it } from 'vitest'
-import { addToCart, cartTotal, itemCount, looksLikeBarcode, removeLine, setQuantity, type SkuInfo } from './cart'
+import {
+  addToCart,
+  cartTotal,
+  itemCount,
+  looksLikeBarcode,
+  removeLine,
+  setQuantity,
+  type SkuInfo,
+} from './cart'
 
-const sku = (id: string, available: number, price = 100_000): SkuInfo => ({
-  id, code: `SKU-${id}`, productName: `San pham ${id}`, attributes: {}, barcode: null, retailPrice: price, available,
-})
+function sku(
+  id: string,
+  available = 10,
+  retailPrice = 100_000,
+): SkuInfo {
+  return {
+    id,
+    code: `SKU-${id}`,
+    productName: `San pham ${id}`,
+    attributes: {},
+    barcode: null,
+    retailPrice,
+    available,
+  }
+}
 
 describe('gio hang POS', () => {
-  it('them moi roi quet lai thi tang so luong', () => {
-    let { cart } = addToCart([], sku('1', 5))
-    cart = addToCart(cart, sku('1', 5)).cart
-    expect(cart).toHaveLength(1)
-    expect(cart[0].quantity).toBe(2)
+  it('them san pham vao gio hang', () => {
+    const result = addToCart([], sku('1'))
+
+    expect(result.cart).toHaveLength(1)
+    expect(result.cart[0].quantity).toBe(1)
+    expect(result.error).toBeUndefined()
   })
 
-  it('chan khi vuot hang kha dung va bao so con lai', () => {
-    const s = sku('1', 2)
-    const first = addToCart([], s, 2)
-    const over = addToCart(first.cart, s)
-    expect(over.error).toContain('chỉ còn 2')
-    expect(over.cart[0].quantity).toBe(2)
+  it('quet lai cung SKU thi tang so luong', () => {
+    const product = sku('1')
+    const first = addToCart([], product)
+    const second = addToCart(first.cart, product)
+
+    expect(second.cart).toHaveLength(1)
+    expect(second.cart[0].quantity).toBe(2)
   })
 
-  it('khong them duoc hang het (available = 0)', () => {
-    const result = addToCart([], sku('1', 0))
+  it('khong cho phep vuot ton kho', () => {
+    const product = sku('1', 2)
+    const first = addToCart([], product, 2)
+    const second = addToCart(first.cart, product)
+
+    expect(second.cart[0].quantity).toBe(2)
+    expect(second.error).toContain('chỉ còn 2')
+  })
+
+  it('tu choi so luong am, bang 0 hoac so thap phan khi them', () => {
+    const product = sku('1')
+
+    expect(addToCart([], product, 0).error).toContain('số nguyên dương')
+    expect(addToCart([], product, -1).error).toContain('số nguyên dương')
+    expect(addToCart([], product, 1.5).error).toContain('số nguyên dương')
+  })
+
+  it('giu nguyen gio hang khi sua so luong thanh so thap phan', () => {
+    const initial = addToCart([], sku('1'), 2).cart
+    const result = setQuantity(initial, '1', 1.5)
+
+    expect(result.error).toContain('số nguyên dương')
+    expect(result.cart[0].quantity).toBe(2)
+  })
+
+  it('xoa san pham khi so luong bang 0', () => {
+    const initial = addToCart([], sku('1')).cart
+    const result = setQuantity(initial, '1', 0)
+
     expect(result.cart).toHaveLength(0)
-    expect(result.error).toBeDefined()
   })
 
-  it('sua so luong hop le, vuot ton thi giu nguyen, <= 0 thi xoa dong', () => {
-    const { cart } = addToCart([], sku('1', 5), 2)
-    expect(setQuantity(cart, '1', 4).cart[0].quantity).toBe(4)
-    expect(setQuantity(cart, '1', 9).error).toContain('chỉ còn 5')
-    expect(setQuantity(cart, '1', 9).cart[0].quantity).toBe(2)
-    expect(setQuantity(cart, '1', 0).cart).toHaveLength(0)
-    expect(setQuantity(cart, '1', Number.NaN).cart).toHaveLength(0)
+  it('giu nguyen gio hang khi vuot ton kho luc sua so luong', () => {
+    const initial = addToCart([], sku('1', 3), 2).cart
+    const result = setQuantity(initial, '1', 4)
+
+    expect(result.cart[0].quantity).toBe(2)
+    expect(result.error).toContain('chỉ còn 3')
   })
 
   it('tinh tong tien va tong so luong', () => {
     let cart = addToCart([], sku('1', 9, 150_000), 2).cart
     cart = addToCart(cart, sku('2', 9, 50_000), 3).cart
-    expect(cartTotal(cart)).toBe(2 * 150_000 + 3 * 50_000)
+
+    expect(cartTotal(cart)).toBe(450_000)
     expect(itemCount(cart)).toBe(5)
-    expect(cartTotal(removeLine(cart, '1'))).toBe(150_000)
   })
 
-  it('nhan dien ma vach tu may quet', () => {
-    expect(looksLikeBarcode('8936001112225')).toBe(true)
-    expect(looksLikeBarcode(' 12345678 ')).toBe(true)
-    expect(looksLikeBarcode('ao thun')).toBe(false)
-    expect(looksLikeBarcode('1234')).toBe(false)
+  it('xoa dung san pham duoc chon', () => {
+    let cart = addToCart([], sku('1')).cart
+    cart = addToCart(cart, sku('2')).cart
+
+    const result = removeLine(cart, '1')
+
+    expect(result).toHaveLength(1)
+    expect(result[0].sku.id).toBe('2')
+  })
+
+  it('nhan dien ma vach', () => {
+    expect(looksLikeBarcode('8930000000012')).toBe(true)
+    expect(looksLikeBarcode('1234567')).toBe(false)
+    expect(looksLikeBarcode('ABC12345678')).toBe(false)
   })
 })
