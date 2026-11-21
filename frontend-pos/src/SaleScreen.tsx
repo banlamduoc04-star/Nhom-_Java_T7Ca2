@@ -21,10 +21,17 @@ const attrText = (sku: SkuInfo) => Object.values(sku.attributes).join(' / ')
 export default function SaleScreen({ user, onLogout }: Props) {
   const searchRef = useRef<HTMLInputElement>(null)
   const cashInputRef = useRef<HTMLInputElement>(null)
+  const notificationAudioRef = useRef<AudioContext | null>(null)
   const [text, setText] = useState('')
   const [results, setResults] = useState<SkuInfo[]>([])
   const [cart, setCart] = useState<CartLine[]>([])
+  const cartRef = useRef<CartLine[]>([])
   const [notice, setNotice] = useState<Notice | null>(null)
+
+  const updateCart = useCallback((next: CartLine[]) => {
+    cartRef.current = next
+    setCart(next)
+  }, [])
 
   // Payment
   const [payOpen, setPayOpen] = useState(false)
@@ -34,6 +41,7 @@ export default function SaleScreen({ user, onLogout }: Props) {
 
   // Receipt modal state
   const [receipt, setReceipt] = useState<CheckoutReceipt | null>(null)
+  const [lastReceipt, setLastReceipt] = useState<CheckoutReceipt | null>(null)
 
   const payDialogRef = useRef<HTMLDivElement>(null)
   const receiptDialogRef = useRef<HTMLDivElement>(null)
@@ -50,11 +58,60 @@ export default function SaleScreen({ user, onLogout }: Props) {
   // FR-SIM-02: thong bao don moi cua cua hang (don san, don tay, POS khac)
   const [newOrder, setNewOrder] = useState<OrderCreatedEvent | null>(null)
 
+  // Mo khoa am thanh sau tuong tac dau tien cua thu ngan.
+  useEffect(() => {
+    const unlockAudio = () => {
+      if (!notificationAudioRef.current) {
+        const AudioContextClass = window.AudioContext
+        if (!AudioContextClass) return
+        notificationAudioRef.current = new AudioContextClass()
+      }
+
+      if (notificationAudioRef.current.state === 'suspended') {
+        void notificationAudioRef.current.resume()
+      }
+    }
+
+    window.addEventListener('pointerdown', unlockAudio)
+    window.addEventListener('keydown', unlockAudio)
+
+    return () => {
+      window.removeEventListener('pointerdown', unlockAudio)
+      window.removeEventListener('keydown', unlockAudio)
+      void notificationAudioRef.current?.close()
+      notificationAudioRef.current = null
+    }
+  }, [])
+
+  // Phat am thanh ngan khi co don hang moi.
+  const playNewOrderSound = useCallback(() => {
+    const audio = notificationAudioRef.current
+    if (!audio || audio.state !== 'running') return
+
+    const oscillator = audio.createOscillator()
+    const gain = audio.createGain()
+
+    oscillator.type = 'sine'
+    oscillator.frequency.setValueAtTime(880, audio.currentTime)
+    oscillator.frequency.setValueAtTime(1174, audio.currentTime + 0.12)
+
+    gain.gain.setValueAtTime(0.0001, audio.currentTime)
+    gain.gain.exponentialRampToValueAtTime(0.15, audio.currentTime + 0.02)
+    gain.gain.exponentialRampToValueAtTime(0.0001, audio.currentTime + 0.3)
+
+    oscillator.connect(gain)
+    gain.connect(audio.destination)
+
+    oscillator.start()
+    oscillator.stop(audio.currentTime + 0.3)
+  }, [])
+
   useEffect(() => {
     if (USE_MOCK) return
     let hideTimer: ReturnType<typeof setTimeout> | undefined
     const unsubscribe = subscribeNewOrders(user.tenantId, (event) => {
       setNewOrder(event)
+      playNewOrderSound()
       clearTimeout(hideTimer)
       hideTimer = setTimeout(() => setNewOrder(null), 8000)
     })
@@ -62,20 +119,18 @@ export default function SaleScreen({ user, onLogout }: Props) {
       clearTimeout(hideTimer)
       unsubscribe()
     }
-  }, [user.tenantId])
+  }, [user.tenantId, playNewOrderSound])
 
   const total = cartTotal(cart)
 
   const add = useCallback((sku: SkuInfo) => {
-    setCart((current) => {
-      const result = addToCart(current, sku)
-      setNotice(result.error ? { kind: 'error', text: result.error } : { kind: 'ok', text: `Đã thêm ${sku.code}` })
-      return result.cart
-    })
+    const result = addToCart(cartRef.current, sku)
+    updateCart(result.cart)
+    setNotice(result.error ? { kind: 'error', text: result.error } : { kind: 'ok', text: `Đã thêm ${sku.code}` })
     setResults([])
     setText('')
     searchRef.current?.focus()
-  }, [])
+  }, [updateCart])
 
   const submit = async (e: FormEvent) => {
     e.preventDefault()
@@ -106,12 +161,12 @@ export default function SaleScreen({ user, onLogout }: Props) {
 
   const clearCart = useCallback(() => {
     if (cart.length === 0 || window.confirm('Hủy toàn bộ giỏ hàng?')) {
-      setCart([])
+      updateCart([])
       setResults([])
       setNotice(null)
       searchRef.current?.focus()
     }
-  }, [cart.length])
+  }, [cart.length, updateCart])
 
   const openCheckout = useCallback(() => {
     if (cart.length === 0) {
@@ -123,7 +178,7 @@ export default function SaleScreen({ user, onLogout }: Props) {
     setTimeout(() => cashInputRef.current?.select(), 100)
   }, [cart.length, total])
 
-  const handleCheckout = async () => {
+  const handleCheckout = useCallback(async () => {
     if (!user.branchId) {
       setNotice({ kind: 'error', text: 'Tài khoản chưa được gán chi nhánh để thực hiện thanh toán' })
       return
@@ -141,9 +196,10 @@ export default function SaleScreen({ user, onLogout }: Props) {
         paymentMethod,
         cashReceived: paymentMethod === 'CASH' ? cashGiven : total,
       })
-      setCart([])
+      updateCart([])
       setPayOpen(false)
       setReceipt(receiptData)
+      setLastReceipt(receiptData)
       setNotice({ kind: 'ok', text: 'Thanh toán thành công!' })
     } catch (err) {
       // Hiển thị lỗi thanh toán
@@ -151,7 +207,7 @@ export default function SaleScreen({ user, onLogout }: Props) {
     } finally {
       setBusy(false)
     }
-  }
+  }, [user.branchId, paymentMethod, cashGiven, total, cart, updateCart])
 
   // Phím tắt: F2 tìm, F9 thanh toán, Esc hủy giỏ
   useEffect(() => {
@@ -181,11 +237,11 @@ export default function SaleScreen({ user, onLogout }: Props) {
     }
     window.addEventListener('keydown', onKey)
     return () => window.removeEventListener('keydown', onKey)
-  }, [payOpen, receipt, busy, openCheckout, clearCart])
+  }, [payOpen, receipt, busy, openCheckout, clearCart, handleCheckout])
 
   const changeQuantity = (skuId: string, quantity: number) => {
-    const result = setQuantity(cart, skuId, quantity)
-    setCart(result.cart)
+    const result = setQuantity(cartRef.current, skuId, quantity)
+    updateCart(result.cart)
     setNotice(result.error ? { kind: 'error', text: result.error } : null)
   }
 
@@ -207,6 +263,9 @@ export default function SaleScreen({ user, onLogout }: Props) {
           <span className="store">{user.tenantName}</span>
           <span className="person">{user.fullName}</span>
         </span>
+        {lastReceipt && (
+          <button className="ghost" onClick={() => setReceipt(lastReceipt)}>In lại hóa đơn</button>
+        )}
         <button className="ghost" onClick={() => logout().then(onLogout)}>Đăng xuất</button>
       </header>
       {newOrder && (
@@ -302,7 +361,7 @@ export default function SaleScreen({ user, onLogout }: Props) {
                     <button aria-label="Tăng" onClick={() => changeQuantity(sku.id, quantity + 1)}>+</button>
                   </div>
                   <div className="line-total">{money(sku.retailPrice * quantity)}</div>
-                  <button className="remove" aria-label={`Xóa ${sku.code}`} onClick={() => setCart(removeLine(cart, sku.id))}>✕</button>
+                  <button className="remove" aria-label={`Xóa ${sku.code}`} onClick={() => updateCart(removeLine(cartRef.current, sku.id))}>✕</button>
                 </li>
               ))}
             </ul>
@@ -381,8 +440,8 @@ export default function SaleScreen({ user, onLogout }: Props) {
             ) : (
               <div className="qr-box">
                 <QrCode value={`OISM_POS_${user.branchId}_${total}`} />
-                <p style={{ margin: '8px 0 0', fontWeight: 600 }}>Quét mã QR để chuyển khoản</p>
-                <small className="muted">Thu ngân xác nhận tiền đã vào tài khoản trước khi hoàn tất</small>
+                <p style={{ margin: '8px 0 0', fontWeight: 600 }}>Mã QR tham chiếu đơn hàng</p>
+                <small className="muted">QR hiện tại là mã nội bộ, chưa tích hợp ngân hàng/VietQR. Thu ngân phải xác nhận giao dịch thực tế trước khi hoàn tất.</small>
               </div>
             )}
 

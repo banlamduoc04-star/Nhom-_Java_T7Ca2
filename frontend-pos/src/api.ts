@@ -107,7 +107,7 @@ const toInfo = (s: SkuSearchItem): SkuInfo => ({
 
 export async function login(identifier: string, password: string): Promise<Me> {
   if (USE_MOCK) {
-    return { userId: 'mock', tenantId: 'mock', tenantName: 'Cửa hàng demo (dữ liệu giả)', fullName: 'Thu ngân demo', role: 'CASHIER', branchId: null }
+    return { userId: 'mock', tenantId: 'mock', tenantName: 'Cửa hàng demo (dữ liệu giả)', fullName: 'Thu ngân demo', role: 'CASHIER', branchId: 'mock-branch' }
   }
   const { data } = await http.post<Tokens>('/auth/login', { identifier, password })
   tokenStore.set(data)
@@ -195,27 +195,35 @@ export interface CheckoutReceipt {
 
 export async function posCheckout(payload: CheckoutPayload): Promise<CheckoutReceipt> {
   if (USE_MOCK) {
-    const total = payload.items.reduce((s, i) => s + i.quantity * 100000, 0)
+    const items = payload.items.map((item) => {
+      const sku = MOCK.find((candidate) => candidate.id === item.skuId)
+      if (!sku) {
+        throw new Error(`Không tìm thấy SKU demo: ${item.skuId}`)
+      }
+      return {
+        skuId: sku.id,
+        skuCode: sku.code,
+        productName: sku.productName,
+        quantity: item.quantity,
+        unitPrice: sku.retailPrice,
+        lineTotal: item.quantity * sku.retailPrice,
+      }
+    })
+    const total = items.reduce((sum, item) => sum + item.lineTotal, 0)
+    const received = payload.cashReceived ?? total
     return {
-      orderId: 'mock-order-id',
-      orderCode: 'POS-MOCK-001',
+      orderId: `mock-${Date.now()}`,
+      orderCode: `POS-MOCK-${Date.now()}`,
       status: 'COMPLETED',
       branchId: payload.branchId,
       branchName: 'Chi nhánh demo',
       totalAmount: total,
       paymentMethod: payload.paymentMethod,
-      cashReceived: payload.cashReceived ?? total,
-      changeAmount: (payload.cashReceived ?? total) - total,
+      cashReceived: received,
+      changeAmount: Math.max(0, received - total),
       completedAt: new Date().toISOString(),
       cashierName: 'Thu ngân demo',
-      items: payload.items.map((i) => ({
-        skuId: i.skuId,
-        skuCode: 'SKU-' + i.skuId,
-        productName: 'Sản phẩm demo',
-        quantity: i.quantity,
-        unitPrice: 100000,
-        lineTotal: i.quantity * 100000,
-      })),
+      items,
     }
   }
   const { data } = await http.post<CheckoutReceipt>('/pos/checkout', payload)
