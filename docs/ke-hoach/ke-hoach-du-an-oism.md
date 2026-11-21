@@ -41,10 +41,10 @@ Hệ thống có 3 vai trò: **Owner** (toàn quyền trong cửa hàng), **Staf
 | Mã | Chức năng | Quy tắc nghiệp vụ / tiêu chí nghiệm thu | Vai trò |
 | --- | --- | --- | --- |
 | FR-PROD-01 | Danh mục nhiều cấp, thương hiệu | Danh mục có danh mục cha. Tên duy nhất trong cùng cấp. Không xóa được danh mục/thương hiệu còn sản phẩm (409 `PR40902`) | Owner; Staff xem |
-| FR-PROD-02 | Sản phẩm đơn và sản phẩm có biến thể | Mỗi biến thể (màu, size…) là một SKU; sản phẩm đơn có đúng 1 SKU. Mã SKU duy nhất trong tenant (409 `PR40901`). Tên sản phẩm khớp `^[A-Z][a-zA-Z0-9\s]{2,50}$`. SKU đã có giao dịch kho thì chỉ được ngưng bán, không xóa | Owner |
+| FR-PROD-02 | Sản phẩm đơn và sản phẩm có biến thể | Mỗi biến thể (màu, size…) là một SKU; sản phẩm đơn có đúng 1 SKU. Mã SKU duy nhất trong tenant (409 `PR40901`). Tên sản phẩm khớp `^\p{Lu}[\p{L}\p{M}0-9\s]{2,50}$`: bắt đầu bằng chữ in hoa, 3–51 ký tự chữ (cho phép tiếng Việt có dấu), số hoặc khoảng trắng; tên được chuẩn hóa Unicode NFC trước khi lưu. SKU đã có giao dịch kho thì chỉ được ngưng bán, không xóa | Owner |
 | FR-PROD-03 | Mã vạch | Tự sinh EAN-13 (có kiểm tra số check digit) hoặc nhập tay Code128. Mã vạch duy nhất trong tenant. In tem mã vạch từ Admin | Owner, Staff |
 | FR-PROD-04 | Giá bán lẻ, giá sỉ | Giá > 0, tách biệt với giá vốn. Đổi giá không ảnh hưởng đơn đã tạo (đơn lưu `unit_price` tại thời điểm bán) | Owner |
-| FR-PROD-05 (bổ sung) | Tìm kiếm, lọc, phân trang | Tìm theo tên/SKU (gần đúng) và mã vạch (khớp chính xác); lọc danh mục, thương hiệu, trạng thái; mặc định 20 dòng/trang | Tất cả |
+| FR-PROD-05 (bổ sung) | Tìm kiếm, lọc, phân trang | Tìm theo tên/SKU (gần đúng, không phân biệt hoa/thường và không phân biệt dấu: gõ "ao thun" ra "Áo Thun") và mã vạch (khớp chính xác); lọc danh mục, thương hiệu, trạng thái; mặc định 20 dòng/trang | Tất cả |
 
 ### 2.3 INV – Sổ cái và nghiệp vụ kho
 

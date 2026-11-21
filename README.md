@@ -78,7 +78,7 @@ docker compose down -v                  # dừng và xóa sạch dữ liệu
 
 **Chạy cả giao diện** (tùy chọn): `docker compose --profile frontend up -d --build` rồi mở Admin ở <http://localhost:3000> và POS ở <http://localhost:3001>.
 
-**Nạp dữ liệu mẫu** (2 cửa hàng, 50 SKU, tài khoản đủ 3 vai trò): đặt `OISM_SEED_ENABLED=true` khi chạy compose. Tài khoản và mật khẩu mẫu xem [Hướng dẫn chạy dự án OISM](docs/huong-dan/huong-dan-chay-du-an.md).
+**Nạp dữ liệu mẫu** (2 cửa hàng, 50 SKU, tài khoản đủ 3 vai trò): đặt `OISM_SEED_ENABLED=true` khi chạy compose. Dữ liệu vận hành mẫu và cách tạo tài khoản xem [Hướng dẫn chạy dự án OISM](docs/huong-dan/huong-dan-chay-du-an.md).
 
 **Biến môi trường** (đặt trong file `.env` cạnh `docker-compose.yml`; mặc định đã chạy được cho dev):
 

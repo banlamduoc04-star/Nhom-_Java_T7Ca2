@@ -2,6 +2,7 @@ package com.oism.application.catalog;
 
 import com.oism.application.common.PageResult;
 import com.oism.application.common.Paging;
+import com.oism.application.common.TextSearch;
 import com.oism.domain.exception.BusinessException;
 import com.oism.domain.exception.ErrorCode;
 import com.oism.domain.model.CatalogStatus;
@@ -65,7 +66,7 @@ public class ProductService {
         assertDistinctCodes(skus);
         assertCategoryAndBrand(tenantId, categoryId, brandId);
 
-        Product product = productRepository.save(new Product(tenantId, categoryId, brandId, name.trim(),
+        Product product = productRepository.save(new Product(tenantId, categoryId, brandId, TextSearch.normalizeName(name),
                 blankToNull(description), hasVariants));
         List<SkuView> created = skus.stream().map(s -> skuService.create(tenantId, product.getId(), s)).toList();
         return ProductView.from(product, created);
@@ -75,7 +76,7 @@ public class ProductService {
     public ProductView update(UUID tenantId, UUID id, String name, String description, UUID categoryId, UUID brandId) {
         Product product = find(tenantId, id);
         assertCategoryAndBrand(tenantId, categoryId, brandId);
-        product.setName(name.trim());
+        product.setName(TextSearch.normalizeName(name));
         product.setDescription(blankToNull(description));
         product.setCategoryId(categoryId);
         product.setBrandId(brandId);
@@ -120,7 +121,7 @@ public class ProductService {
                 sub.select(sku.get("id")).where(
                         cb.equal(sku.get("productId"), root.get("id")),
                         cb.or(cb.like(cb.lower(sku.get("code")), like), cb.equal(sku.get("barcode"), kw)));
-                predicates.add(cb.or(cb.like(cb.lower(root.get("name")), like), cb.exists(sub)));
+                predicates.add(cb.or(TextSearch.likeIgnoreAccent(cb, root.get("name"), kw), cb.exists(sub)));
             }
             return cb.and(predicates.toArray(new Predicate[0]));
         };

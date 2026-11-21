@@ -109,7 +109,8 @@ Bảng quyền theo từng endpoint nằm ở mục "Danh sách API" của kế 
 
 - Validation bằng Bean Validation trên request DTO, **message tiếng Việt**: `@NotBlank(message = "Tên danh mục không được để trống")`.
 - Mỗi endpoint có `@Operation(summary = "...")`; controller có `@Tag`. Nêu rõ vai trò và mã lỗi chính trong `summary`.
-- Tên sản phẩm theo luật của đề: `^[A-Z][a-zA-Z0-9\s]{2,50}$` (chữ hoa đầu, **không dấu**).
+- Tên sản phẩm (FR-PROD-02): `^\p{Lu}[\p{L}\p{M}0-9\s]{2,50}$`: chữ in hoa đầu, **được có dấu tiếng Việt**; backend chuẩn hóa NFC trước khi lưu (`TextSearch.normalizeName`). Frontend dùng cùng regex với cờ `u`.
+- Tìm gần đúng theo tên dùng `TextSearch.likeIgnoreAccent` (`f_unaccent(lower(...)) LIKE ...`, hàm tạo ở `V13`), không phân biệt hoa/thường và dấu.
 
 ## 5. Cơ sở dữ liệu và Flyway
 

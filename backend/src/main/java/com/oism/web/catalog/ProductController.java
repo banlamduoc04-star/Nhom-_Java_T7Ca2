@@ -40,9 +40,12 @@ import java.util.UUID;
 @Tag(name = "Products")
 public class ProductController {
 
-    /** Quy tac ten san pham cua de bai: chu cai hoa dau, tiep theo 2-50 ky tu chu/so/khoang trang. */
-    static final String NAME_PATTERN = "^[A-Z][a-zA-Z0-9\\s]{2,50}$";
-    static final String NAME_MESSAGE = "Tên sản phẩm phải bắt đầu bằng chữ in hoa, gồm 3-51 ký tự chữ không dấu, số hoặc khoảng trắng";
+    /**
+     * Quy tac ten san pham (FR-PROD-02): chu cai in hoa dau, tiep theo 2-50 ky tu chu (cho phep tieng Viet
+     * co dau, ca dang dung san lan dang to hop \p{M}), so hoac khoang trang.
+     */
+    static final String NAME_PATTERN = "^\\p{Lu}[\\p{L}\\p{M}0-9\\s]{2,50}$";
+    static final String NAME_MESSAGE = "Tên sản phẩm phải bắt đầu bằng chữ in hoa, gồm 3-51 ký tự chữ (được có dấu), số hoặc khoảng trắng";
 
     private final ProductService productService;
     private final SkuService skuService;

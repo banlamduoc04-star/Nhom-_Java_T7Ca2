@@ -123,6 +123,43 @@ class ProductApiIT extends AbstractIntegrationTest {
     }
 
     @Test
+    void acceptsVietnameseNamesAndSearchesIgnoringAccents() {
+        Session s = newTenant();
+
+        // Ten co dau hop le; chu dau van phai in hoa (ke ca chu co dau)
+        JsonNode aoThun = POST(s, "/api/v1/products", Map.of("name", "Áo Thun Nữ", "hasVariants", false,
+                "skus", List.of(sku("VN-1", "1000"))), 201);
+        assertEquals("Áo Thun Nữ", aoThun.get("name").asText());
+        newProduct(s, "Đầm Dạ Hội", "VN-2", "1000");
+        newProduct(s, "Ao Polo Nam", "VN-3", "1000");
+        assertEquals("PR40001", POST(s, "/api/v1/products", Map.of("name", "áo thun", "hasVariants", false,
+                "skus", List.of(sku("VN-4", "1000"))), 400).get("errorCode").asText());
+
+        // Ten go dang to hop (NFD) duoc luu ve NFC
+        String nfd = java.text.Normalizer.normalize("Quần Kaki", java.text.Normalizer.Form.NFD);
+        assertEquals("Quần Kaki", POST(s, "/api/v1/products", Map.of("name", nfd, "hasVariants", false,
+                "skus", List.of(sku("VN-5", "1000"))), 201).get("name").asText());
+
+        // Sua ten sang co dau
+        String polo = GET(s, "/api/v1/products?keyword=VN-3", 200).get("content").get(0).get("id").asText();
+        PUT(s, "/api/v1/products/" + polo, Map.of("name", "Áo Polo Nam"), 200);
+
+        // Tim khong phan biet dau, hai chieu; ca d/đ
+        assertEquals("Áo Thun Nữ", GET(s, "/api/v1/products?keyword=ao thun", 200)
+                .get("content").get(0).get("name").asText());
+        assertEquals(2, GET(s, "/api/v1/products?keyword=áo", 200).get("totalElements").asInt());
+        assertEquals(2, GET(s, "/api/v1/products?keyword=AO", 200).get("totalElements").asInt());
+        assertEquals("Đầm Dạ Hội", GET(s, "/api/v1/products?keyword=dam da", 200)
+                .get("content").get(0).get("name").asText());
+        assertEquals(1, GET(s, "/api/v1/products?keyword=quan kaki", 200).get("totalElements").asInt());
+
+        // Tim SKU phang (phieu nhap, POS) cung khong phan biet dau
+        JsonNode skus = GET(s, "/api/v1/skus?keyword=ao thun", 200);
+        assertEquals(1, skus.get("totalElements").asInt());
+        assertEquals("VN-1", skus.get("content").get(0).get("code").asText());
+    }
+
+    @Test
     void changesPricesWithoutAffectingExistingOrders() {
         Session s = newTenant();
         JsonNode sku = newProduct(s, "Ao Doi Gia", "GIA-1", "100000");

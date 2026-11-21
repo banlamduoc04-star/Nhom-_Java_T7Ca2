@@ -32,45 +32,38 @@ Lần đầu build mất vài phút. Kiểm tra bằng `docker compose ps`: các
 
 ## 3. Tài khoản
 
-### 3.1. Tài khoản đang dùng
+### 3.1. Tài khoản dữ liệu mẫu (19 tài khoản)
 
-Mật khẩu chung: **`admin123`** (chỉ dùng cho dev/demo trên máy local).
+Đây là các tài khoản nạp sẵn trong CSDL Docker bằng script `scripts/du-lieu-mau/nap-du-lieu.ps1` (chỉ dùng cho dev/demo trên máy local). Đăng nhập bằng email hoặc số điện thoại. Mật khẩu chung: **`admin123`**.
 
-| Cửa hàng | Vai trò | Email | Đăng nhập ở |
-|---|---|---|---|
-| Shop Giày | Owner | `owner@shopgiay.vn` | Admin (bán được cả trên POS) |
-| Shop Giày | Staff | `staff@shopgiay.vn` | Admin |
-| Shop Giày | Cashier | `cashier@shopgiay.vn` | POS |
-| Shop Quần Áo | Owner | `owner@shopquanao.vn` | Admin (bán được cả trên POS) |
-| Shop Quần Áo | Staff | `staff@shopquanao.vn` | Admin |
-| Shop Quần Áo | Cashier | `cashier@shopquanao.vn` | POS |
+| Cửa hàng | Vai trò | Chi nhánh | Họ tên | Email | Mật khẩu | Đăng nhập ở |
+|---|---|---|---|---|---|---|
+| Giày Dép Hưng Thịnh | Owner |  | Trần Văn Hưng | `hung.tran@giayhungthinh.vn` | `admin123` | Admin (bán được cả trên POS) |
+| Giày Dép Hưng Thịnh | Staff |  | Nguyễn Thị Thu Hà | `thuha.kho@giayhungthinh.vn` | `admin123` | Admin |
+| Giày Dép Hưng Thịnh | Staff |  | Lê Minh Đức | `duc.lm@giayhungthinh.vn` | `admin123` | Admin |
+| Giày Dép Hưng Thịnh | Cashier | Hưng Thịnh Cầu Giấy | Phạm Ngọc Ánh | `ngocanh.cg@giayhungthinh.vn` | `admin123` | POS |
+| Giày Dép Hưng Thịnh | Cashier | Hưng Thịnh Cầu Giấy | Đỗ Quang Huy | `huy.do@giayhungthinh.vn` | `admin123` | POS |
+| Giày Dép Hưng Thịnh | Cashier | Hưng Thịnh Phố Huế | Vũ Thị Mai | `mai.vu@giayhungthinh.vn` | `admin123` | POS |
+| Giày Dép Hưng Thịnh | Cashier | Hưng Thịnh Phố Huế | Hoàng Anh Tuấn | `tuan.ha@giayhungthinh.vn` | `admin123` | Đã nghỉ việc, tài khoản bị khóa |
+| Giày Dép Hưng Thịnh | Cashier | Hưng Thịnh Phố Huế | Bùi Khánh Linh | `khanhlinh.ph@giayhungthinh.vn` | `admin123` | POS |
+| Thời trang Mộc Lan | Owner |  | Lâm Ngọc Lan | `lan.lam@moclanfashion.vn` | `admin123` | Admin (bán được cả trên POS) |
+| Thời trang Mộc Lan | Staff |  | Trịnh Bảo Ngọc | `baongoc@moclanfashion.vn` | `admin123` | Admin |
+| Thời trang Mộc Lan | Staff |  | Nguyễn Hoàng Phúc | `phuc.nh@moclanfashion.vn` | `admin123` | Admin |
+| Thời trang Mộc Lan | Cashier | Mộc Lan Nguyễn Trãi | Đặng Thùy Linh | `thuylinh.nt@moclanfashion.vn` | `admin123` | POS |
+| Thời trang Mộc Lan | Cashier | Mộc Lan Nguyễn Trãi | Huỳnh Gia Bảo | `giabao.h@moclanfashion.vn` | `admin123` | POS |
+| Thời trang Mộc Lan | Cashier | Mộc Lan Thủ Đức | Lý Thanh Trúc | `truc.ly@moclanfashion.vn` | `admin123` | POS |
+| Thời trang Mộc Lan | Cashier | Mộc Lan Thủ Đức | Tô Minh Khang | `khang.to@moclanfashion.vn` | `admin123` | POS |
+| Tạp hóa Phúc An | Owner |  | Hồ Văn Phúc | `phuc.ho@taphoaphucan.vn` | `admin123` | Admin (bán được cả trên POS) |
+| Tạp hóa Phúc An | Staff |  | Lê Thị Kim Oanh | `kimoanh@taphoaphucan.vn` | `admin123` | Admin |
+| Tạp hóa Phúc An | Cashier | Phúc An Hải Châu | Hồ Thị An | `an.ho@taphoaphucan.vn` | `admin123` | POS |
+| Tạp hóa Phúc An | Cashier | Phúc An Hải Châu | Ngô Văn Tài | `tai.ngo@taphoaphucan.vn` | `admin123` | POS |
 
-Mỗi shop đã có danh mục, thương hiệu, nhà cung cấp, 5 sản phẩm (13–15 SKU, có mã vạch EAN-13) và hàng nhập sẵn tại "Chi nhánh chính".
+> Chạy lại `nap-du-lieu.ps1` thì dữ liệu bán hàng được sinh mới nhưng email và mật khẩu `admin123` giữ nguyên. Nếu chạy `docker compose down -v` (xóa CSDL) thì cần chạy lại `nap-du-lieu.ps1` để có lại các tài khoản này.
 
-> Các tài khoản này nằm trong CSDL Docker của máy đã tạo. Chạy `docker compose down -v` hoặc dùng máy khác thì không còn: dùng dữ liệu mẫu ở mục 3.2 hoặc tạo lại theo mục 3.3.
-
-### 3.2. Dữ liệu mẫu tự nạp (máy nào cũng có)
-
-Đặt `OISM_SEED_ENABLED=true` khi chạy để backend tự nạp 2 cửa hàng, 3 chi nhánh, 50 SKU, 3 nhà cung cấp và phiếu nhập đã xác nhận. Nạp một lần (bỏ qua nếu đã có `owner.a@oism.vn`), không đụng tới các cửa hàng khác ở mục 3.1.
-
-```powershell
-$env:OISM_SEED_ENABLED="true"; docker compose --profile frontend up -d --build
-```
-
-Mật khẩu chung: **`Oism@12345`** (chỉ dùng cho dev/demo).
-
-| Cửa hàng | Vai trò | Email |
-|---|---|---|
-| Demo Shop A | Owner | `owner.a@oism.vn` |
-| Demo Shop A | Staff | `staff.a@oism.vn` |
-| Demo Shop A | Cashier | `cashier.a@oism.vn` |
-| Demo Shop B | Owner | `owner.b@oism.vn` |
-| Demo Shop B | Cashier | `cashier.b@oism.vn` |
-
-### 3.3. Tạo tài khoản mới
+### 3.2. Tạo tài khoản mới
 
 1. Mở Admin http://localhost:3000 → **Đăng ký** để tạo cửa hàng. Tài khoản vừa đăng ký là **Owner**.
-2. Đăng nhập bằng tài khoản Owner, vào **Nhân viên** để tạo thêm tài khoản **Staff** (dùng Admin) và **Cashier** (dùng POS, gán chi nhánh).
+2. Đăng nhập Owner, vào **Nhân viên** để tạo **Staff** (dùng Admin) và **Cashier** (dùng POS, gán chi nhánh).
 
 ## 4. Lệnh hay dùng
 
@@ -84,6 +77,21 @@ docker compose down -v                  # dừng và XÓA sạch dữ liệu
 ## 5. Thử nhanh API bằng Swagger
 
 1. Mở http://localhost:8080/swagger-ui.html.
-2. `POST /auth/login` với body `{"identifier": "owner@shopgiay.vn", "password": "admin123"}` → copy `accessToken`.
+2. `POST /auth/login` với body `{"identifier": "<email>", "password": "<mật khẩu>"}` (lấy ở mục 3.1) → copy `accessToken`.
 3. Bấm **Authorize**, dán token (không gõ chữ `Bearer`).
 4. Thử `GET /me`.
+
+
+
+
+## 6. Chạy kiểm thử postman 
+
+# 1. Dừng stack chính (KHÔNG thêm -v để giữ nguyên volume oism_pgdata hiện có)
+docker compose down
+
+# 2. Dựng 1 DB + Backend giả lập riêng biệt với tên project khác (-p oism-test)
+#    Docker sẽ tạo volume riêng "oism-test_oism_pgdata", hoàn toàn trống và sạch
+docker compose -p oism-test up -d --build
+
+# 3. Đợi đến khi cột STATUS hiện "healthy"
+docker compose -p oism-test ps

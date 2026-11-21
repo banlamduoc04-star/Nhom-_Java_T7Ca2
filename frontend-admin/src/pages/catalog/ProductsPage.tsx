@@ -7,8 +7,8 @@ import { errorText } from '../../api/client'
 import { useAuth } from '../../auth/AuthContext'
 import type { Brand, CatalogStatus, Category, ProductSummary } from '../../api/types'
 
-/** Quy tac ten san pham cua de bai: chu hoa dau, 3-51 ky tu chu/so/khoang trang khong dau. */
-const NAME_RULE = { pattern: /^[A-Z][a-zA-Z0-9\s]{2,50}$/, message: 'Tên phải bắt đầu bằng chữ in hoa, gồm 3–51 ký tự chữ không dấu, số hoặc khoảng trắng' }
+/** Quy tac ten san pham (FR-PROD-02): chu in hoa dau, 3-51 ky tu chu (duoc co dau)/so/khoang trang. Khop NAME_PATTERN o backend. */
+const NAME_RULE = { pattern: /^\p{Lu}[\p{L}\p{M}0-9\s]{2,50}$/u, message: 'Tên phải bắt đầu bằng chữ in hoa, gồm 3–51 ký tự chữ (được có dấu), số hoặc khoảng trắng' }
 
 interface SkuForm {
   code: string

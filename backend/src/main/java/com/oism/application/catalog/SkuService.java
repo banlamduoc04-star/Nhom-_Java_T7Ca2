@@ -2,6 +2,7 @@ package com.oism.application.catalog;
 
 import com.oism.application.common.PageResult;
 import com.oism.application.common.Paging;
+import com.oism.application.common.TextSearch;
 import com.oism.domain.exception.BusinessException;
 import com.oism.domain.exception.ErrorCode;
 import com.oism.domain.model.CatalogStatus;
@@ -154,7 +155,7 @@ public class SkuService {
                 String like = "%" + kw.toLowerCase() + "%";
                 Subquery<UUID> byName = query.subquery(UUID.class);
                 Root<Product> product = byName.from(Product.class);
-                byName.select(product.get("id")).where(cb.like(cb.lower(product.get("name")), like));
+                byName.select(product.get("id")).where(TextSearch.likeIgnoreAccent(cb, product.get("name"), kw));
                 ps.add(cb.or(cb.like(cb.lower(root.get("code")), like), cb.equal(root.get("barcode"), kw),
                         root.get("productId").in(byName)));
             }

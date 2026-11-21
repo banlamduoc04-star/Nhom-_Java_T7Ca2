@@ -44,6 +44,8 @@ Quy ước dữ liệu: "Owner/Staff/Cashier" là tài khoản của cùng một
 | TC-PROD-13 | FR-PROD-01 | Đ/L | Tạo danh mục cha–con; tạo trùng tên cùng cấp; tạo trùng tên khác cấp | 201; 409 `PR40901`; khác cấp 201 | IT `ProductApiIT.categoryTreeNamesAndDeleteRules` |
 | TC-PROD-14 | FR-PROD-01 | L | Đặt cha của danh mục gốc là con của nó (vòng lặp) | 400 `PR40001` | IT như trên |
 | TC-PROD-15 | FR-PROD-01 | L | Xóa danh mục còn danh mục con / còn sản phẩm; xóa thương hiệu còn sản phẩm; tạo thương hiệu trùng tên | 409 `PR40902`; 409 `PR40901` | IT như trên |
+| TC-PROD-16 | FR-PROD-02 | Đ/L | Tạo tên có dấu `Áo Thun Nữ`, `Đầm Dạ Hội`; tên gõ dạng tổ hợp (NFD); sửa tên sang có dấu; tên `áo thun` (chữ thường đầu) | 201, tên lưu dạng NFC; 200; 400 `PR40001` | IT `ProductApiIT.acceptsVietnameseNamesAndSearchesIgnoringAccents` |
+| TC-PROD-17 | FR-PROD-05 | Đ | Tìm không phân biệt dấu: `ao thun` ra `Áo Thun Nữ`, `áo`/`AO` ra cả tên có và không dấu, `dam da` ra `Đầm Dạ Hội`; `GET /skus?keyword=ao thun` | Đúng kết quả | IT như trên |
 
 ## INV và COST
 

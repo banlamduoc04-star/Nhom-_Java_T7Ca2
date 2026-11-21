@@ -40,3 +40,8 @@ frontend-*/dist/
 .postman/
 postman/
 e2e/
+
+# Du lieu mau: danh sach tai khoan sinh ra (chi giu tren may)
+scripts/du-lieu-mau/tai-khoan.local.md
+scripts/du-lieu-mau/*.sql
+scripts/du-lieu-mau/__pycache__/
